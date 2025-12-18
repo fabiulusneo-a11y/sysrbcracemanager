@@ -1,12 +1,13 @@
 
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { ParsedEventRaw } from "../types";
 
 // Initialize Gemini Client
 // Note: process.env.API_KEY is injected by the environment.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const eventParsingSchema: Schema = {
+// Fixed: Removed non-existent Schema import and applied Type enum as per guidelines
+const eventParsingSchema = {
   type: Type.ARRAY,
   items: {
     type: Type.OBJECT,
@@ -43,7 +44,7 @@ export const parseScheduleFromText = async (text: string): Promise<ParsedEventRa
       },
     });
 
-    // Directly access .text property as per guidelines
+    // Directly access .text property as per guidelines (not a method)
     if (response.text) {
       return JSON.parse(response.text) as ParsedEventRaw[];
     }

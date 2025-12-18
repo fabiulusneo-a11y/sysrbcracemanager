@@ -6,8 +6,7 @@ import MembersView from './components/views/MembersView';
 import CitiesView from './components/views/CitiesView';
 import ChampionshipsView from './components/views/ChampionshipsView';
 import EventsView from './components/views/EventsView';
-import AIAssistantView from './components/views/AIAssistantView';
-import { ViewState, AppData, Member, City, Championship, Event } from './types';
+import { ViewState, AppData } from './types';
 import { Menu, X } from 'lucide-react';
 
 const INITIAL_DATA: AppData = {
@@ -80,16 +79,6 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleBulkImport = (newEvents: Event[], newChamps: Championship[], newCities: City[], newMembers: Member[]) => {
-      setData(prev => ({
-          events: [...prev.events, ...newEvents],
-          championships: [...prev.championships, ...newChamps],
-          cities: [...prev.cities, ...newCities],
-          members: [...prev.members, ...newMembers]
-      }));
-      setCurrentView('events');
-  };
-
   // Action to navigate to edit specific event
   const handleEditEventNavigation = (id: string) => {
     setEditingEventId(id);
@@ -148,8 +137,6 @@ const App: React.FC = () => {
                 onClearEditingId={() => setEditingEventId(null)}
             />
         );
-      case 'ai-import':
-        return <AIAssistantView data={data} onImportEvents={handleBulkImport} />;
       default:
         return <Dashboard data={data} onChangeView={setCurrentView} onEditEvent={handleEditEventNavigation} />;
     }

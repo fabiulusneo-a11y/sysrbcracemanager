@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Calendar, Trophy, Users, MapPin, BrainCircuit, PlusCircle } from 'lucide-react';
+import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface SidebarProps {
@@ -15,10 +15,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { id: 'championships', label: 'Campeonatos', icon: Trophy },
     { id: 'members', label: 'Integrantes', icon: Users },
     { id: 'cities', label: 'Cidades', icon: MapPin },
-  ];
-
-  const actionItems: { id: ViewState; label: string; icon: React.ElementType }[] = [
-    { id: 'ai-import', label: 'Importação Inteligente', icon: BrainCircuit },
   ];
 
   const renderLink = (item: { id: ViewState; label: string; icon: React.ElementType }) => {
@@ -58,7 +54,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         <div className="mt-8 px-4 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Ações Rápidas
         </div>
-        {/* Shortcut to new event (uses events view but labelled differently) */}
         <button
           onClick={() => onChangeView('events')}
           className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 text-slate-400 hover:bg-slate-800 hover:text-white"
@@ -66,7 +61,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
           <PlusCircle size={20} />
           <span className="font-medium text-sm">Novo Evento Manual</span>
         </button>
-        {actionItems.map(renderLink)}
       </nav>
 
       <div className="p-4 border-t border-slate-800">
