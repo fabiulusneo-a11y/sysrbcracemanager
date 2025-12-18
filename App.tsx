@@ -20,8 +20,22 @@ const INITIAL_DATA: AppData = {
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [data, setData] = useState<AppData>(() => {
-    const saved = localStorage.getItem('racetrack_data');
-    return saved ? JSON.parse(saved) : INITIAL_DATA;
+    try {
+      const saved = localStorage.getItem('racetrack_data');
+      if (!saved) return INITIAL_DATA;
+      
+      const parsed = JSON.parse(saved);
+      // Basic validation to ensure structure is correct
+      return {
+        cities: Array.isArray(parsed.cities) ? parsed.cities : [],
+        championships: Array.isArray(parsed.championships) ? parsed.championships : [],
+        members: Array.isArray(parsed.members) ? parsed.members : [],
+        events: Array.isArray(parsed.events) ? parsed.events : []
+      };
+    } catch (error) {
+      console.error("Erro ao carregar dados do LocalStorage:", error);
+      return INITIAL_DATA;
+    }
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -29,7 +43,11 @@ const App: React.FC = () => {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('racetrack_data', JSON.stringify(data));
+    try {
+      localStorage.setItem('racetrack_data', JSON.stringify(data));
+    } catch (error) {
+      console.error("Erro ao salvar dados no LocalStorage:", error);
+    }
   }, [data]);
 
   // Generic Handlers
