@@ -1,0 +1,5 @@
+{
+  "name": "RBC_Race_Manager",
+  "description": "Sistema de gestão de equipes e calendário de competições automotivas com suporte a IA para importação de cronogramas.",
+  "requestFramePermissions": []
+}
