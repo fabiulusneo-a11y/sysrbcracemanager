@@ -27,13 +27,13 @@ export interface Event {
   confirmed: boolean; // Status for Confirmado/Indefinido
 }
 
-// Fixed missing export: Added ParsedEventRaw interface
+// Fixed: Added missing interface for AI parsing results to resolve import errors
 export interface ParsedEventRaw {
   championshipName: string;
   stageName: string;
   date: string;
   cityName: string;
-  stateCode?: string;
+  stateCode: string;
   memberNames: string[];
 }
 
