@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Member, Event, Championship, City } from '../../types';
-import { Plus, Trash2, Edit2, User, ArrowLeft, Calendar, MapPin, Trophy, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, User, ArrowLeft, Calendar, MapPin, Trophy, ToggleLeft, ToggleRight, Printer, X } from 'lucide-react';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
 interface MembersViewProps {
@@ -20,11 +20,152 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', role: '', active: true });
   
-  // Novo estado para exclusão
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; member: Member | null }>({
     isOpen: false,
     member: null
   });
+
+  const getChampName = (id: string) => championships.find(c => c.id === id)?.name || 'N/A';
+  const getCityName = (id: string) => {
+      const c = cities.find(city => city.id === id);
+      return c ? `${c.name} - ${c.state}` : 'N/A';
+  };
+  const getDisplayDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const handlePrint = () => {
+    const selectedMember = members.find(m => m.id === selectedMemberId);
+    const memberEvents = events
+        .filter(e => e.memberIds.includes(selectedMemberId || ''))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) {
+      alert("Habilite pop-ups para visualizar o relatório.");
+      return;
+    }
+
+    const tableRows = memberEvents.map((event, index) => {
+      const d = getDisplayDate(event.date);
+      const isConfirmed = event.confirmed !== false;
+      return `
+        <tr>
+          <td style="text-align: center; border-bottom: 1px solid #eee; color: #999; font-weight: 700;">${index + 1}</td>
+          <td style="white-space: nowrap; border-bottom: 1px solid #eee;">${d.toLocaleDateString('pt-BR')}</td>
+          <td style="font-weight: 700; border-bottom: 1px solid #eee;">${getChampName(event.championshipId)}</td>
+          <td style="border-bottom: 1px solid #eee;">${event.stage}</td>
+          <td style="border-bottom: 1px solid #eee;">${getCityName(event.cityId)}</td>
+          <td style="text-align: center; border-bottom: 1px solid #eee;">
+            <div style="display: inline-block; padding: 1px 6px; border: 1px solid #ddd; border-radius: 3px; font-size: 8px; font-weight: 800; text-transform: uppercase; background: ${isConfirmed ? '#f0fdf4' : '#fffbeb'}; color: ${isConfirmed ? '#166534' : '#92400e'};">
+              ${isConfirmed ? 'Confirmado' : 'Indefinido'}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    reportWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório RBC - ${selectedMember?.name}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+        <style>
+          @page { size: A4; margin: 1cm; }
+          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #333; font-size: 10px; line-height: 1.2; }
+          
+          table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+          thead { display: table-header-group; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
+          
+          .report-header-content { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .report-header-content h1 { margin: 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; color: #000; }
+          .meta { text-align: right; font-size: 8px; color: #666; font-weight: 600; }
+
+          th { text-align: left; padding: 6px 8px; background: #f8fafc; border-bottom: 1.5px solid #000; font-size: 8px; font-weight: 900; text-transform: uppercase; color: #000; }
+          td { padding: 5px 8px; vertical-align: middle; }
+
+          .summary-header { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; margin-bottom: 15px; }
+          .summary-header label { font-size: 7px; font-weight: 800; text-transform: uppercase; color: #9ca3af; letter-spacing: 1px; }
+          .summary-header h2 { margin: 0; font-size: 16px; font-weight: 900; color: #000; }
+          .summary-header p { margin: 3px 0 0 0; font-weight: 600; color: #666; font-size: 9px; }
+          
+          .print-toolbar {
+            position: fixed; top: 0; left: 0; right: 0; background: #111; color: #fff; padding: 8px 20px;
+            display: flex; justify-content: space-between; align-items: center; z-index: 1000;
+          }
+          .btn-print {
+            background: #ef4444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px;
+            font-weight: 800; font-size: 10px; cursor: pointer; text-transform: uppercase;
+          }
+
+          @media print {
+            .print-toolbar, .print-toolbar-spacer { display: none !important; }
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-toolbar">
+          <span style="font-weight: 800; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">Relatório Individual RBC (Modo Compacto)</span>
+          <button class="btn-print" onclick="window.print()">Imprimir Agora</button>
+        </div>
+        <div style="height: 40px;" class="print-toolbar-spacer"></div>
+
+        <div style="padding: 15px;">
+          <table>
+            <thead>
+              <tr>
+                <th colspan="6" style="background: transparent; border: none; padding: 0;">
+                  <div class="report-header-content">
+                    <div>
+                      <h1>RBC Motorsport</h1>
+                      <div style="font-weight: 700; color: #666; text-transform: uppercase; font-size: 9px; margin-top: 2px;">Escala Individual de Equipe</div>
+                    </div>
+                    <div class="meta">
+                      EMISSÃO: <b>${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}</b>
+                    </div>
+                  </div>
+                </th>
+              </tr>
+              <tr>
+                <th style="width: 30px; text-align: center;">Nº</th>
+                <th style="width: 10%;">Data</th>
+                <th style="width: 25%;">Campeonato</th>
+                <th style="width: 20%;">Etapa</th>
+                <th style="width: 25%;">Localização</th>
+                <th style="text-align: center; width: 10%;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" style="padding: 0; border: none;">
+                   <div class="summary-header">
+                      <label>Integrante</label>
+                      <h2>${selectedMember?.name}</h2>
+                      <p>Cargo: <b>${selectedMember?.role}</b> | Atividades: <b>${memberEvents.length} registros</b>.</p>
+                   </div>
+                </td>
+              </tr>
+              ${memberEvents.length > 0 ? tableRows : '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #999;">Nenhum registro encontrado.</td></tr>'}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="6" style="text-align: center; font-size: 7px; color: #999; padding-top: 30px; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
+                  Documento Técnico • Gerado via RBC Motorsport Management System
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </body>
+      </html>
+    `);
+    reportWindow.document.close();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,16 +197,6 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
     setFormData({ name: '', role: '', active: true });
   };
 
-  const getChampName = (id: string) => championships.find(c => c.id === id)?.name || 'N/A';
-  const getCityName = (id: string) => {
-      const c = cities.find(city => city.id === id);
-      return c ? `${c.name} - ${c.state}` : 'N/A';
-  };
-  const getDisplayDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  };
-
   const sortedMembers = [...members].sort((a, b) => 
     a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
   );
@@ -78,30 +209,40 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <button 
-                    onClick={() => setSelectedMemberId(null)}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-                <div>
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-2xl font-bold text-slate-100">{selectedMember?.name}</h2>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                            selectedMember?.active ? 'bg-green-900/20 text-green-400 border-green-800' : 'bg-slate-800 text-slate-500 border-slate-700'
-                        }`}>
-                            {selectedMember?.active ? 'Ativo' : 'Inativo'}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-slate-400">{selectedMember?.role}</p>
-                      <span className="text-slate-600">•</span>
-                      <p className="text-red-500 font-bold text-sm">
-                        {memberEvents.length} {memberEvents.length === 1 ? 'evento agendado' : 'eventos agendados'}
-                      </p>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => setSelectedMemberId(null)}
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-2xl font-bold text-slate-100">{selectedMember?.name}</h2>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                selectedMember?.active ? 'bg-green-900/20 text-green-400 border-green-800' : 'bg-slate-800 text-slate-500 border-slate-700'
+                            }`}>
+                                {selectedMember?.active ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-slate-400">{selectedMember?.role}</p>
+                          <span className="text-slate-600">•</span>
+                          <p className="text-red-500 font-bold text-sm">
+                            {memberEvents.length} {memberEvents.length === 1 ? 'evento agendado' : 'eventos agendados'}
+                          </p>
+                        </div>
                     </div>
                 </div>
+                
+                <button 
+                    onClick={handlePrint}
+                    title="Imprimir Escala Individual"
+                    className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors border border-slate-700 shadow-sm"
+                >
+                    <Printer size={20} />
+                </button>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
@@ -291,7 +432,7 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
         </div>
       )}
 
-      {/* Modal de Exclusão customizado */}
+      {/* Fixed: Use 'deleteModal' instead of 'deleteMember' */}
       <DeleteConfirmModal 
         isOpen={deleteModal.isOpen}
         itemName={deleteModal.member?.name || ''}

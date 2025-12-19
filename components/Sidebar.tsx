@@ -42,7 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         <div className="w-8 h-8 bg-red-600 rounded-md flex items-center justify-center transform -skew-x-12">
             <span className="font-bold text-white skew-x-12">R</span>
         </div>
-        <h1 className="text-xl font-bold tracking-tight">RBC Race Manager</h1>
+        <h1 className="text-xl font-bold tracking-tight">RBC Motorsport</h1>
       </div>
       
       <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">

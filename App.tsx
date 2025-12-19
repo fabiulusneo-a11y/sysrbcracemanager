@@ -7,9 +7,8 @@ import CitiesView from './components/views/CitiesView';
 import ChampionshipsView from './components/views/ChampionshipsView';
 import EventsView from './components/views/EventsView';
 import SettingsView from './components/views/SettingsView';
-import AIAssistantView from './components/views/AIAssistantView';
 import { ViewState, AppData, Event, Championship, City, Member } from './types';
-import { Menu, X, Cloud, Loader2, Database, AlertCircle, Info } from 'lucide-react';
+import { Menu, X, Cloud, Loader2, Database, AlertCircle, Info, RefreshCw } from 'lucide-react';
 import { initDatabase, sqlInsert, sqlUpdate, sqlDelete, fetchAllData, isSupabaseConfigured } from './services/databaseService';
 
 const App: React.FC = () => {
@@ -29,14 +28,14 @@ const App: React.FC = () => {
         return;
     }
     setLoading(true);
-    setErrorMessage(null);
     try {
       const allData = await fetchAllData();
       setData(allData);
+      setErrorMessage(null);
       setConfigMissing(false);
     } catch (error: any) {
       console.error("Erro ao carregar dados:", error);
-      setErrorMessage("Erro de conexão: Verifique suas credenciais do Supabase.");
+      setErrorMessage("Erro de conexão: Não foi possível obter os dados do Supabase.");
     } finally {
       setLoading(false);
     }
@@ -44,6 +43,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const setup = async () => {
+      setIsInitializing(true);
       if (!isSupabaseConfigured()) {
           setConfigMissing(true);
           setIsInitializing(false);
@@ -53,9 +53,10 @@ const App: React.FC = () => {
         const initialData = await initDatabase();
         setData(initialData);
         setConfigMissing(false);
+        setErrorMessage(null);
       } catch (error) {
         console.error("Erro ao inicializar Supabase:", error);
-        setConfigMissing(true);
+        setErrorMessage("Falha crítica ao conectar ao banco de dados.");
       } finally {
         setIsInitializing(false);
       }
@@ -119,22 +120,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleImport = async (newEvents: Event[], newChamps: Championship[], newCities: City[], newMembers: Member[]) => {
-      setLoading(true);
-      try {
-          // Batch insertion (simple sequential for reliability)
-          for (const c of newChamps) await sqlInsert('championships', c);
-          for (const c of newCities) await sqlInsert('cities', c);
-          for (const m of newMembers) await sqlInsert('members', m);
-          for (const e of newEvents) await sqlInsert('events', e);
-          await loadData();
-      } catch (e: any) {
-          setErrorMessage("Erro na importação: " + (e.message || "Erro desconhecido"));
-      } finally {
-          setLoading(false);
-      }
-  };
-
   const handleEditEventNavigation = (id: string) => {
     setEditingEventId(id);
     setCurrentView('events');
@@ -143,17 +128,30 @@ const App: React.FC = () => {
   if (isInitializing) {
     return (
       <div className="h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 p-8">
-        <div className="relative mb-8">
-          <div className="absolute inset-0 bg-blue-600/20 blur-3xl rounded-full"></div>
-          <div className="relative bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl flex flex-col items-center">
-            <Cloud size={64} className="text-blue-500 mb-6 animate-pulse" />
-            <Loader2 size={32} className="text-slate-400 animate-spin mb-4" />
-            <h1 className="text-xl font-bold mb-2">RBC Race Manager</h1>
-            <p className="text-slate-500 text-sm">Sincronizando banco de dados...</p>
-          </div>
+        <div className="relative mb-8 text-center">
+          <div className="absolute inset-0 bg-blue-600/10 blur-3xl rounded-full"></div>
+          <Loader2 size={48} className="text-blue-500 animate-spin mx-auto mb-4" />
+          <h1 className="text-xl font-bold mb-2">RBC Motorsport</h1>
+          <p className="text-slate-500 text-sm">Carregando informações...</p>
         </div>
       </div>
     );
+  }
+
+  // Se houver um erro crítico e não tivermos dados, mostramos tela de erro em vez de dashboard vazio
+  if (errorMessage && !data) {
+    return (
+      <div className="h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 p-8">
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-md text-center">
+            <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Erro de Carregamento</h2>
+            <p className="text-slate-400 mb-6">{errorMessage}</p>
+            <button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-xl font-bold flex items-center justify-center gap-2 mx-auto">
+                <RefreshCw size={18} /> Tentar Novamente
+            </button>
+        </div>
+      </div>
+    )
   }
 
   const appData = data || { cities: [], championships: [], members: [], events: [] };
@@ -239,10 +237,7 @@ const App: React.FC = () => {
                       <h3 className="font-bold text-lg">{warningMessage.title}</h3>
                   </div>
                   <p className="text-slate-400 text-sm mb-6">{warningMessage.msg}</p>
-                  <button 
-                    onClick={() => setWarningMessage(null)}
-                    className="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl font-bold transition-colors"
-                  >
+                  <button onClick={() => setWarningMessage(null)} className="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl font-bold transition-colors">
                       Entendido
                   </button>
               </div>
@@ -250,27 +245,21 @@ const App: React.FC = () => {
       )}
 
       <div className="md:hidden fixed top-0 left-0 w-full bg-slate-900 border-b border-slate-800 text-white z-20 flex items-center justify-between p-4 shadow-md">
-        <span className="font-bold text-lg">RBC Race Manager</span>
+        <span className="font-bold text-lg">RBC Motorsport</span>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X /> : <Menu />}
         </button>
       </div>
 
-      <div className={`
-        fixed inset-0 z-20 bg-black/50 transition-opacity md:hidden
-        ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
-      `} onClick={() => setIsMobileMenuOpen(false)}></div>
+      <div className={`fixed inset-0 z-20 bg-black/50 transition-opacity md:hidden ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMobileMenuOpen(false)}></div>
       
-      <div className={`
-        fixed md:static inset-y-0 left-0 z-30 transition-transform duration-300 transform md:transform-none
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      <div className={`fixed md:static inset-y-0 left-0 z-30 transition-transform duration-300 transform md:transform-none ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
          <Sidebar currentView={currentView} onChangeView={(view) => { setCurrentView(view); setIsMobileMenuOpen(false); }} />
       </div>
 
       <main className="flex-1 p-4 md:p-8 pt-20 md:pt-8 overflow-y-auto h-full bg-slate-950">
         <div className="max-w-7xl mx-auto min-h-full">
-           {errorMessage && (
+           {errorMessage && data && (
                <div className="mb-6 bg-red-900/20 border border-red-800 p-4 rounded-xl flex items-center gap-3 text-red-400 animate-in slide-in-from-top duration-300">
                    <AlertCircle size={20} />
                    <p className="font-medium">{errorMessage}</p>
@@ -283,16 +272,9 @@ const App: React.FC = () => {
                    <div className="p-4 bg-amber-900/20 border border-amber-800/50 rounded-2xl">
                        <Database size={48} className="text-amber-500 mx-auto mb-4" />
                        <h2 className="text-2xl font-bold mb-2">Conexão Necessária</h2>
-                       <p className="text-slate-400 max-w-md">
-                           As credenciais do Supabase não foram encontradas. Por favor, configure a URL e a Chave Anon para continuar.
-                       </p>
+                       <p className="text-slate-400 max-w-md">As credenciais do Supabase não foram encontradas. Por favor, configure a URL e a Chave Anon para continuar.</p>
                    </div>
-                   <button 
-                       onClick={() => setCurrentView('settings')}
-                       className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-xl font-bold transition-all"
-                   >
-                       Ir para Configurações
-                   </button>
+                   <button onClick={() => setCurrentView('settings')} className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-xl font-bold transition-all">Ir para Configurações</button>
                </div>
            ) : renderContent()}
         </div>

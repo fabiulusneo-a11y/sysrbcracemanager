@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RBC Race Manager</title>
+    <title>RBC Motorsport</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -24,6 +24,91 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #475569;
+      }
+
+      /* Estilos de Impressão Profissional */
+      @media print {
+        @page {
+          margin: 1.5cm;
+          size: auto;
+        }
+        
+        /* Forçar fluxo normal do documento (anulando h-screen e overflow-hidden) */
+        html, body, #root, .h-screen, main {
+          height: auto !important;
+          overflow: visible !important;
+          background: white !important;
+          color: black !important;
+        }
+
+        /* Ocultar elementos de UI */
+        nav, 
+        aside, 
+        button, 
+        .no-print,
+        header,
+        .fixed,
+        .sidebar-container,
+        .modal-backdrop,
+        [role="dialog"] {
+          display: none !important;
+        }
+
+        main {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          position: relative !important;
+        }
+
+        .max-w-7xl {
+          max-width: 100% !important;
+        }
+
+        /* Cores e Bordas para Papel */
+        .bg-slate-900, .bg-slate-950, .bg-slate-800 {
+          background: white !important;
+          border: 1px solid #cbd5e1 !important;
+          box-shadow: none !important;
+        }
+
+        .text-slate-100, .text-slate-200, .text-white {
+          color: black !important;
+        }
+
+        .text-slate-400, .text-slate-500 {
+          color: #475569 !important;
+        }
+
+        .border-slate-800, .border-slate-700 {
+          border-color: #94a3b8 !important;
+        }
+
+        .print-only {
+          display: block !important;
+        }
+
+        .rounded-xl {
+          border-radius: 4px !important;
+          page-break-inside: avoid;
+          margin-bottom: 10px !important;
+        }
+
+        /* Badges em escala de cinza para impressão */
+        .bg-green-900\/20, .bg-amber-900\/20, .bg-red-900\/20 {
+          background: #f1f5f9 !important;
+          border: 1px solid #94a3b8 !important;
+          color: black !important;
+        }
+        
+        .text-red-500 {
+          color: #b91c1c !important;
+        }
+      }
+
+      /* Classe para esconder na tela e mostrar no papel */
+      .print-only {
+        display: none;
       }
     </style>
   <script type="importmap">
