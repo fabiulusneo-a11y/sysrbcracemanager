@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Event, AppData, Member } from '../../types';
-import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
@@ -149,6 +149,158 @@ const EventsView: React.FC<EventsViewProps> = ({
     });
   };
 
+  const handlePrintAnalytical = () => {
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) {
+      alert("Habilite pop-ups para visualizar o relatório.");
+      return;
+    }
+
+    const memberHeaders = sortedMembersList.map(m => `
+        <th class="rotate-header">
+            <div><span>${m.name}</span></div>
+        </th>
+    `).join('');
+
+    const tableRows = filteredEvents.map((event, idx) => {
+        const city = getCityObj(event.cityId);
+        const isConfirmed = event.confirmed !== false;
+        const memberCells = sortedMembersList.map(member => {
+            const isConvocado = event.memberIds.includes(member.id);
+            return `
+                <td class="cell-data ${isConvocado ? 'is-selected' : 'is-empty'}">
+                    ${isConvocado ? '1' : '0'}
+                </td>
+            `;
+        }).join('');
+
+        return `
+            <tr>
+                <td style="text-align: center; border: 1px solid #94a3b8;">${formatToBRDate(event.date)}</td>
+                <td style="font-weight: 800; border: 1px solid #94a3b8;">${getChampName(event.championshipId)}</td>
+                <td style="text-align: center; border: 1px solid #94a3b8;">${event.stage.replace(/\D/g, '') || (idx+1)}</td>
+                <td style="border: 1px solid #94a3b8;">${city?.name || 'N/A'}</td>
+                <td style="text-align: center; border: 1px solid #94a3b8;">${city?.state || '??'}</td>
+                <td style="text-align: center; border: 1px solid #94a3b8;">
+                    <div class="status-badge ${isConfirmed ? 'status-confirmed' : 'status-pending'}">
+                        ${isConfirmed ? 'CONFIRM' : 'INDEF'}
+                    </div>
+                </td>
+                ${memberCells}
+            </tr>
+        `;
+    }).join('');
+
+    const totalsRow = sortedMembersList.map(member => {
+        const total = getMemberTotal(member.id);
+        return `<td style="text-align: center; font-weight: 900; background: #fee2e2; color: #b91c1c; border: 1px solid #ef4444; font-size: 9px;">${total}</td>`;
+    }).join('');
+
+    reportWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Matriz RBC - ${new Date().toLocaleDateString('pt-BR')}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+        <style>
+          @page { size: A4 landscape; margin: 0.8cm; }
+          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #0D0D0D; font-size: 8px; line-height: 1.1; }
+          
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #94a3b8; }
+          thead { display: table-header-group; }
+          
+          .report-header { border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+          .report-header h1 { margin: 0; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; color: #000; }
+          .record-count { font-size: 10px; font-weight: 800; color: #ef4444; text-transform: uppercase; margin-top: 2px; }
+          
+          th { padding: 4px; background: #d9d9d9; color: #0D0D0D; font-size: 7px; font-weight: 900; text-transform: uppercase; border: 1px solid #94a3b8; }
+          td { padding: 3px 4px; vertical-align: middle; word-wrap: break-word; }
+
+          /* Zebra Striping */
+          tbody tr:nth-child(even) { background-color: #f1f5f9; }
+          tbody tr:nth-child(odd) { background-color: #ffffff; }
+
+          .rotate-header { height: 95px; white-space: nowrap; vertical-align: bottom; padding: 0 !important; }
+          .rotate-header > div { transform: rotate(180deg); writing-mode: vertical-rl; width: 25px; margin: 0 auto; }
+          .rotate-header span { font-size: 7px; font-weight: 900; letter-spacing: 0.5px; }
+
+          .cell-data { text-align: center; font-weight: 800; font-size: 9px; border: 1px solid #94a3b8; }
+          .is-selected { color: #b91c1c; background-color: #fef2f2 !important; }
+          .is-empty { color: #cbd5e1; }
+
+          .status-badge { font-size: 6px; font-weight: 900; text-transform: uppercase; padding: 1px 3px; border-radius: 2px; display: inline-block; }
+          .status-confirmed { border: 1px solid #166534; color: #166534; background: #f0fdf4; }
+          .status-pending { border: 1px solid #92400e; color: #92400e; background: #fffbeb; }
+
+          .print-toolbar {
+            position: fixed; top: 0; left: 0; right: 0; background: #111; color: #fff; padding: 6px 20px;
+            display: flex; justify-content: space-between; align-items: center; z-index: 1000;
+          }
+          .btn-print {
+            background: #ef4444; color: #fff; border: none; padding: 5px 10px; border-radius: 4px;
+            font-weight: 800; font-size: 9px; cursor: pointer; text-transform: uppercase;
+          }
+
+          @media print {
+            .print-toolbar { display: none !important; }
+            body { padding: 0; }
+            thead { display: table-header-group; }
+            th { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #d9d9d9 !important; color: #0D0D0D !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-toolbar">
+          <span style="font-weight: 800; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">Matriz Analítica RBC Motorsport (Paisagem)</span>
+          <button class="btn-print" onclick="window.print()">Imprimir Agora (A4)</button>
+        </div>
+        <div style="height: 35px;"></div>
+
+        <div class="report-header">
+            <div>
+                <h1>RBC Motorsport</h1>
+                <div class="record-count">Total de Registros: ${filteredEvents.length} eventos no período</div>
+                <div style="font-weight: 700; color: #64748b; text-transform: uppercase; font-size: 7px; margin-top: 1px;">Matriz Analítica de Convocação de Equipe</div>
+            </div>
+            <div style="text-align: right; font-size: 7px; color: #94a3b8;">
+                DATA DE EMISSÃO: <b>${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</b>
+            </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 60px;">Data</th>
+              <th style="width: 140px; text-align: left;">Campeonato</th>
+              <th style="width: 20px;">Et.</th>
+              <th style="width: 100px; text-align: left;">Cidade</th>
+              <th style="width: 25px;">UF</th>
+              <th style="width: 45px;">Status</th>
+              ${memberHeaders}
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+          <tfoot>
+            <tr style="border-top: 2px solid #000; background: #f1f5f9;">
+                <td colspan="6" style="text-align: right; font-weight: 900; font-size: 8px; text-transform: uppercase; border: 1px solid #94a3b8;">Soma das Convocações:</td>
+                ${totalsRow}
+            </tr>
+          </tfoot>
+        </table>
+
+        <div style="margin-top: 10px; border-top: 1px solid #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; font-size: 7px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">
+            <span>Matriz Técnica • RBC Motorsport Management System</span>
+            <span>Documento Técnico de Equipe • Configuração A4 Paisagem</span>
+        </div>
+      </body>
+      </html>
+    `);
+    reportWindow.document.close();
+  };
+
   const exportAnalyticalStyled = async () => {
     setIsExporting(true);
     try {
@@ -169,8 +321,8 @@ const EventsView: React.FC<EventsViewProps> = ({
 
         const headerRow = worksheet.getRow(1);
         headerRow.eachCell((cell) => {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-            cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
+            cell.font = { color: { argb: 'FF0D0D0D' }, bold: true };
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         });
@@ -191,12 +343,12 @@ const EventsView: React.FC<EventsViewProps> = ({
             const isStriped = index % 2 !== 0;
 
             row.eachCell((cell, colNumber) => {
-                if (isStriped) { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; }
+                if (isStriped) { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; }
                 if (colNumber > 6) {
                     if (cell.value === 1) {
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } };
-                        cell.font = { color: { argb: 'FF721C24' }, bold: true };
-                    } else { cell.font = { color: { argb: 'FF334155' } }; }
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+                        cell.font = { color: { argb: 'FFB91C1C' }, bold: true };
+                    } else { cell.font = { color: { argb: 'FF94A3B8' } }; }
                     cell.alignment = { horizontal: 'center' };
                 }
                 cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -208,7 +360,7 @@ const EventsView: React.FC<EventsViewProps> = ({
         const url = window.URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;
-        anchor.download = `relatorio_analitico_rbc_${new Date().toISOString().split('T')[0]}.xlsx`;
+        anchor.download = `matriz_rbc_${new Date().toISOString().split('T')[0]}.xlsx`;
         anchor.click();
         window.URL.revokeObjectURL(url);
     } catch (error) {
@@ -390,17 +542,25 @@ const EventsView: React.FC<EventsViewProps> = ({
                             Matriz Analítica de Convocação
                         </h3>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                          <button 
+                            type="button"
+                            onClick={handlePrintAnalytical}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all border border-slate-700"
+                          >
+                              <Printer size={16} />
+                              <span>Imprimir</span>
+                          </button>
                           <button 
                             type="button"
                             onClick={exportAnalyticalStyled}
                             disabled={isExporting}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 disabled:opacity-50"
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 disabled:opacity-50"
                           >
                               {isExporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-                              {isExporting ? 'Processando...' : 'Exportar Excel'}
+                              <span>{isExporting ? 'Processando...' : 'Exportar Excel'}</span>
                           </button>
-                          <button type="button" onClick={() => setIsAnalyticalModalOpen(false)} className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-lg">
+                          <button type="button" onClick={() => setIsAnalyticalModalOpen(false)} className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-lg ml-2">
                               <X size={20} />
                           </button>
                       </div>
@@ -410,15 +570,15 @@ const EventsView: React.FC<EventsViewProps> = ({
                       <div className="min-w-max inline-block align-top">
                         <table className="border-collapse table-auto">
                             <thead className="sticky top-0 z-40">
-                                <tr className="bg-[#4472C4] text-white">
-                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider sticky left-0 z-50 bg-[#4472C4] w-[85px] text-center align-middle">Data</th>
-                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider sticky left-[85px] z-50 bg-[#4472C4] w-[180px] text-left align-middle">Campeonato</th>
-                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider w-[45px] text-center align-middle">Et.</th>
-                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider w-[120px] text-left align-middle">Cidade</th>
-                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider w-[35px] text-center align-middle">UF</th>
-                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider w-[80px] text-center align-middle">Status</th>
+                                <tr className="bg-[#0f172a] text-white">
+                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider sticky left-0 z-50 bg-[#0f172a] w-[85px] text-center align-middle">Data</th>
+                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider sticky left-[85px] z-50 bg-[#0f172a] w-[180px] text-left align-middle">Campeonato</th>
+                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider w-[45px] text-center align-middle">Et.</th>
+                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider w-[120px] text-left align-middle">Cidade</th>
+                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider w-[35px] text-center align-middle">UF</th>
+                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider w-[80px] text-center align-middle">Status</th>
                                     {sortedMembersList.map(member => (
-                                        <th key={member.id} className="p-2 border border-white/30 relative bg-[#4472C4] w-[40px] min-w-[40px] text-center align-middle">
+                                        <th key={member.id} className="p-2 border border-white/10 relative bg-[#0f172a] w-[40px] min-w-[40px] text-center align-middle">
                                             <span className="[writing-mode:vertical-rl] rotate-180 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-white leading-none inline-block">
                                                 {member.name}
                                             </span>
@@ -431,26 +591,26 @@ const EventsView: React.FC<EventsViewProps> = ({
                                     const city = getCityObj(event.cityId);
                                     const champName = getChampName(event.championshipId);
                                     const isConfirmed = event.confirmed !== false;
-                                    const rowBgClass = idx % 2 === 0 ? 'bg-white' : 'bg-gray-100';
+                                    const rowBgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
                                     
                                     return (
-                                        <tr key={event.id} className={`border-b border-slate-300 transition-colors hover:bg-blue-50/50 ${rowBgClass}`}>
-                                            <td className={`p-2 border border-slate-300 font-mono text-[10px] text-black font-semibold sticky left-0 z-30 text-center ${rowBgClass}`}>
+                                        <tr key={event.id} className={`border-b border-slate-200 transition-colors hover:bg-blue-50/50 ${rowBgClass}`}>
+                                            <td className={`p-2 border border-slate-200 font-mono text-[10px] text-slate-900 font-semibold sticky left-0 z-30 text-center ${rowBgClass}`}>
                                                 {formatToBRDate(event.date)}
                                             </td>
-                                            <td className={`p-2 border border-slate-300 font-bold text-black text-[10px] sticky left-[85px] z-30 ${rowBgClass}`}>
+                                            <td className={`p-2 border border-slate-200 font-bold text-slate-900 text-[10px] sticky left-[85px] z-30 ${rowBgClass}`}>
                                                 <div className="truncate max-w-[170px]">{champName}</div>
                                             </td>
-                                            <td className={`p-2 border border-slate-300 text-[10px] text-slate-900 text-center font-medium ${rowBgClass}`}>
+                                            <td className={`p-2 border border-slate-200 text-[10px] text-slate-800 text-center font-medium ${rowBgClass}`}>
                                                 {event.stage.replace(/\D/g, '') || (idx + 1).toString().padStart(2, '0')}
                                             </td>
-                                            <td className={`p-2 border border-slate-300 text-[10px] text-slate-900 truncate max-w-[110px] font-medium ${rowBgClass}`}>
+                                            <td className={`p-2 border border-slate-200 text-[10px] text-slate-800 truncate max-w-[110px] font-medium ${rowBgClass}`}>
                                                 {city?.name || 'N/A'}
                                             </td>
-                                            <td className={`p-2 border border-slate-300 text-[10px] text-slate-900 text-center font-medium ${rowBgClass}`}>
+                                            <td className={`p-2 border border-slate-200 text-[10px] text-slate-800 text-center font-medium ${rowBgClass}`}>
                                                 {city?.state || '??'}
                                             </td>
-                                            <td className={`p-2 border border-slate-300 text-center ${rowBgClass}`}>
+                                            <td className={`p-2 border border-slate-200 text-center ${rowBgClass}`}>
                                                 <span className={`text-[8px] font-bold px-1 py-0.5 rounded border inline-block ${
                                                     isConfirmed ? 'bg-green-100 text-green-800 border-green-200' : 'bg-amber-100 text-amber-800 border-amber-200'
                                                 }`}>
@@ -460,7 +620,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                                             {sortedMembersList.map(member => {
                                                 const isConvocado = event.memberIds.includes(member.id);
                                                 return (
-                                                    <td key={member.id} className={`p-1 border border-slate-300 text-center text-[11px] font-bold ${isConvocado ? 'bg-red-50 text-red-600' : 'text-blue-300'} ${rowBgClass}`}>
+                                                    <td key={member.id} className={`p-1 border border-slate-200 text-center text-[11px] font-bold ${isConvocado ? 'bg-red-50 text-red-600' : 'text-slate-300'} ${rowBgClass}`}>
                                                         {isConvocado ? '1' : '0'}
                                                     </td>
                                                 );
@@ -499,7 +659,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                               <span className="uppercase tracking-tighter font-medium">Escalado</span>
                           </div>
                           <div className="flex items-center gap-1">
-                              <span className="font-bold text-blue-300 text-xs">0</span>
+                              <span className="font-bold text-slate-300 text-xs">0</span>
                               <span className="uppercase tracking-tighter font-medium">Livre</span>
                           </div>
                       </div>
