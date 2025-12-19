@@ -2,11 +2,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { City, Championship, Member, Event, AppData } from '../types';
 
-// Tenta obter das variáveis de ambiente ou do localStorage
+// Credenciais Internas do Sistema
+const DEFAULT_SUPABASE_URL = 'https://jrgzsvjarnaiwxzwkeve.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyZ3pzdmphcm5haXd4endrZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwOTkyNTgsImV4cCI6MjA4MTY3NTI1OH0.tLmJix-r76m58BzJgUFJsg0xZiApJQ2NLZvOBvEu9Cw';
+
+// Tenta obter das variáveis de ambiente, do localStorage ou usa as fixas do sistema
 const getKeys = () => {
   return {
-    url: process.env.SUPABASE_URL || localStorage.getItem('RBC_SUPABASE_URL') || '',
-    key: process.env.SUPABASE_ANON_KEY || localStorage.getItem('RBC_SUPABASE_KEY') || ''
+    url: localStorage.getItem('RBC_SUPABASE_URL') || process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL,
+    key: localStorage.getItem('RBC_SUPABASE_KEY') || process.env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY
   };
 };
 
