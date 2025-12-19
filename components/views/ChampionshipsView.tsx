@@ -430,7 +430,12 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
                                             <div className="flex justify-between items-center">
                                                 <span className="font-bold truncate">{member.name} {!member.active && '(Inativo)'}</span>
                                                 {isSelected && <Check size={12} />}
-                                                {isUnavailable && <AlertCircle size={12} className="text-red-500" title={`Já escalado em: ${getChampName(conflict.championshipId)}`} />}
+                                                {/* Fixed: Wrapped AlertCircle in a span with the title attribute to fix property error */}
+                                                {isUnavailable && conflict && (
+                                                    <span title={`Já escalado em: ${getChampName(conflict.championshipId)}`}>
+                                                        <AlertCircle size={12} className="text-red-500" />
+                                                    </span>
+                                                )}
                                             </div>
                                             <span className="text-[10px] text-slate-500">{member.role}</span>
                                         </div>

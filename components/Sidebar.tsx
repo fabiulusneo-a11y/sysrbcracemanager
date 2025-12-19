@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle } from 'lucide-react';
+import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle, Settings } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface SidebarProps {
@@ -52,14 +52,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         {mainItems.map(renderLink)}
 
         <div className="mt-8 px-4 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Ações Rápidas
+            Sistema
         </div>
         <button
-          onClick={() => onChangeView('events')}
-          className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 text-slate-400 hover:bg-slate-800 hover:text-white"
+          onClick={() => onChangeView('settings')}
+          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+            currentView === 'settings' 
+              ? 'bg-slate-700 text-white' 
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+          }`}
         >
-          <PlusCircle size={20} />
-          <span className="font-medium text-sm">Novo Evento Manual</span>
+          <Settings size={20} />
+          <span className="font-medium text-sm">Configurações / Dados</span>
         </button>
       </nav>
 

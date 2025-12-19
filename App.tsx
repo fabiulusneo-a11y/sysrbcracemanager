@@ -6,9 +6,10 @@ import MembersView from './components/views/MembersView';
 import CitiesView from './components/views/CitiesView';
 import ChampionshipsView from './components/views/ChampionshipsView';
 import EventsView from './components/views/EventsView';
-import { ViewState, AppData, Member, City, Championship, Event } from './types';
-import { Menu, X, Database as DbIcon, Loader2 } from 'lucide-react';
-import { initDatabase, sqlInsert, sqlUpdate, sqlDelete, fetchAllData } from './services/databaseService';
+import SettingsView from './components/views/SettingsView';
+import { ViewState, AppData } from './types';
+import { Menu, X, Cloud, Loader2, Database, ExternalLink } from 'lucide-react';
+import { initDatabase, sqlInsert, sqlUpdate, sqlDelete, fetchAllData, isSupabaseConfigured } from './services/databaseService';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
@@ -16,14 +17,39 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [configMissing, setConfigMissing] = useState(false);
+
+  const loadData = async () => {
+    if (!isSupabaseConfigured()) {
+        setConfigMissing(true);
+        return;
+    }
+    setLoading(true);
+    try {
+      const allData = await fetchAllData();
+      setData(allData);
+      setConfigMissing(false);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const setup = async () => {
+      if (!isSupabaseConfigured()) {
+          setConfigMissing(true);
+          setIsInitializing(false);
+          return;
+      }
       try {
         const initialData = await initDatabase();
         setData(initialData);
+        setConfigMissing(false);
       } catch (error) {
-        console.error("Erro ao inicializar SQLite:", error);
+        console.error("Erro ao inicializar Supabase:", error);
       } finally {
         setIsInitializing(false);
       }
@@ -31,22 +57,26 @@ const App: React.FC = () => {
     setup();
   }, []);
 
-  const refreshData = () => {
-    setData(fetchAllData());
+  const addItem = async (table: string, item: any) => {
+    try {
+      await sqlInsert(table, item);
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao salvar: " + e.message);
+    }
   };
 
-  const addItem = (table: string, item: any) => {
-    sqlInsert(table, item);
-    refreshData();
+  const updateItem = async (table: string, item: any) => {
+    try {
+      const { id, ...rest } = item;
+      await sqlUpdate(table, id, rest);
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao atualizar: " + e.message);
+    }
   };
 
-  const updateItem = (table: string, item: any) => {
-    const { id, ...rest } = item;
-    sqlUpdate(table, id, rest);
-    refreshData();
-  };
-
-  const deleteItem = (key: keyof AppData, table: string, id: string) => {
+  const deleteItem = async (key: keyof AppData, table: string, id: string) => {
     if (!data) return;
     if (table === 'championships' || table === 'cities') {
         const inUse = data.events.some(e => 
@@ -58,8 +88,12 @@ const App: React.FC = () => {
             return;
         }
     }
-    sqlDelete(table, id);
-    refreshData();
+    try {
+      await sqlDelete(table, id);
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao excluir: " + e.message);
+    }
   };
 
   const handleEditEventNavigation = (id: string) => {
@@ -71,21 +105,30 @@ const App: React.FC = () => {
     return (
       <div className="h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 p-8">
         <div className="relative mb-8">
-          <div className="absolute inset-0 bg-red-600/20 blur-3xl rounded-full"></div>
+          <div className="absolute inset-0 bg-blue-600/20 blur-3xl rounded-full"></div>
           <div className="relative bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl flex flex-col items-center">
-            <DbIcon size={64} className="text-red-600 mb-6 animate-pulse" />
+            <Cloud size={64} className="text-blue-500 mb-6 animate-pulse" />
             <Loader2 size={32} className="text-slate-400 animate-spin mb-4" />
             <h1 className="text-xl font-bold mb-2">RBC Race Manager</h1>
-            <p className="text-slate-500 text-sm">Inicializando Banco de Dados SQL...</p>
+            <p className="text-slate-500 text-sm">Conectando ao Banco de Dados...</p>
           </div>
         </div>
       </div>
     );
   }
 
+  // Se a configuração estiver faltando, força a visão de Settings
+  if (configMissing && currentView !== 'settings') {
+      setCurrentView('settings');
+  }
+
   const appData = data || { cities: [], championships: [], members: [], events: [] };
 
   const renderContent = () => {
+    if (configMissing && currentView !== 'settings') {
+        return null;
+    }
+
     switch (currentView) {
       case 'dashboard':
         return <Dashboard data={appData} onChangeView={setCurrentView} onEditEvent={handleEditEventNavigation} />;
@@ -137,6 +180,8 @@ const App: React.FC = () => {
                 onClearEditingId={() => setEditingEventId(null)}
             />
         );
+      case 'settings':
+        return <SettingsView onDataChanged={loadData} />;
       default:
         return <Dashboard data={appData} onChangeView={setCurrentView} onEditEvent={handleEditEventNavigation} />;
     }
@@ -144,6 +189,13 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen bg-slate-950 flex text-slate-100 overflow-hidden">
+      {loading && (
+        <div className="fixed top-4 right-4 z-50 bg-blue-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 animate-bounce shadow-lg">
+          <Loader2 size={12} className="animate-spin" />
+          Sincronizando...
+        </div>
+      )}
+
       <div className="md:hidden fixed top-0 left-0 w-full bg-slate-900 border-b border-slate-800 text-white z-20 flex items-center justify-between p-4 shadow-md">
         <span className="font-bold text-lg">RBC Race Manager</span>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -165,7 +217,23 @@ const App: React.FC = () => {
 
       <main className="flex-1 p-4 md:p-8 pt-20 md:pt-8 overflow-y-auto h-full scrollbar-hide bg-slate-950">
         <div className="max-w-7xl mx-auto min-h-full">
-           {renderContent()}
+           {configMissing && currentView !== 'settings' ? (
+               <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
+                   <div className="p-4 bg-amber-900/20 border border-amber-800/50 rounded-2xl">
+                       <Database size={48} className="text-amber-500 mx-auto mb-4" />
+                       <h2 className="text-2xl font-bold mb-2">Conexão Necessária</h2>
+                       <p className="text-slate-400 max-w-md">
+                           As credenciais do Supabase não foram encontradas. Por favor, configure a URL e a Chave Anon para continuar.
+                       </p>
+                   </div>
+                   <button 
+                       onClick={() => setCurrentView('settings')}
+                       className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-xl font-bold transition-all"
+                   >
+                       Ir para Configurações
+                   </button>
+               </div>
+           ) : renderContent()}
         </div>
       </main>
     </div>

@@ -27,7 +27,6 @@ export interface Event {
   confirmed: boolean; // Status for Confirmado/Indefinido
 }
 
-// Fixed: Added missing interface for AI parsing results to resolve import errors
 export interface ParsedEventRaw {
   championshipName: string;
   stageName: string;
@@ -37,7 +36,7 @@ export interface ParsedEventRaw {
   memberNames: string[];
 }
 
-export type ViewState = 'dashboard' | 'events' | 'championships' | 'cities' | 'members';
+export type ViewState = 'dashboard' | 'events' | 'championships' | 'cities' | 'members' | 'settings';
 
 export interface AppData {
   cities: City[];

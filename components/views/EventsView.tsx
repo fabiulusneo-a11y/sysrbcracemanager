@@ -367,7 +367,7 @@ const EventsView: React.FC<EventsViewProps> = ({
              <div className="p-12 text-center border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/50">
                 <Calendar className="mx-auto h-12 w-12 text-slate-600 mb-3" />
                 <h3 className="text-lg font-medium text-slate-300">Nenhum evento encontrado</h3>
-                <p className="text-slate-500">Adicione etapas manualmente ou ajuste os filtros.</p>
+                <p className="text-slate-500">Adicione etapas manually ou ajuste os filtros.</p>
             </div>
         ) : (
             filteredEvents.map((event) => {
@@ -632,7 +632,12 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 <div className="flex items-center justify-between gap-2">
                                 <span className="text-sm font-medium truncate">{member.name}</span>
                                 {isSelected && <Check size={14} className="flex-shrink-0" />}
-                                {isUnavailable && <AlertCircle size={14} className="text-red-500 flex-shrink-0" title="Já convocado para outro evento nesta data" />}
+                                {/* Fixed: Wrapped AlertCircle in a span with the title attribute to fix property error */}
+                                {isUnavailable && (
+                                    <span title="Já convocado para outro evento nesta data">
+                                        <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+                                    </span>
+                                )}
                                 </div>
                                 <div className="text-[10px] text-slate-500">{member.role}</div>
                             </div>
