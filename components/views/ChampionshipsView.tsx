@@ -69,6 +69,18 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
     setFormData({ name: '' });
   };
 
+  const handleDelete = (e: React.MouseEvent, champ: Championship) => {
+    e.stopPropagation();
+    if (confirm(`Deseja realmente excluir o campeonato "${champ.name}"?`)) {
+      const confirmation = prompt(`Para confirmar a exclusão, digite o nome do campeonato ("${champ.name}"):`);
+      if (confirmation?.trim().toLowerCase() === champ.name.trim().toLowerCase()) {
+        onDelete(champ.id);
+      } else if (confirmation !== null) {
+        alert("O nome digitado não corresponde ao registro. Operação cancelada.");
+      }
+    }
+  };
+
   const openAddEventModal = () => {
     if (!selectedChampId) return;
     setNewEventData({
@@ -430,7 +442,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
                                             <div className="flex justify-between items-center">
                                                 <span className="font-bold truncate">{member.name} {!member.active && '(Inativo)'}</span>
                                                 {isSelected && <Check size={12} />}
-                                                {/* Fixed: Wrapped AlertCircle in a span with the title attribute to fix property error */}
                                                 {isUnavailable && conflict && (
                                                     <span title={`Já escalado em: ${getChampName(conflict.championshipId)}`}>
                                                         <AlertCircle size={12} className="text-red-500" />
@@ -488,7 +499,7 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
                     <button onClick={(e) => { e.stopPropagation(); openModal(champ); }} className="p-1.5 text-slate-400 hover:text-blue-400 rounded">
                         <Edit2 size={14} />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(champ.id); }} className="p-1.5 text-slate-400 hover:text-red-400 rounded">
+                    <button onClick={(e) => handleDelete(e, champ)} className="p-1.5 text-slate-400 hover:text-red-400 rounded">
                         <Trash2 size={14} />
                     </button>
                 </div>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { City, Event, Championship } from '../../types';
 import { Plus, Trash2, Edit2, MapPin, ArrowLeft, Calendar, Trophy } from 'lucide-react';
@@ -41,6 +42,18 @@ const CitiesView: React.FC<CitiesViewProps> = ({ cities, events, championships, 
   const closeModal = () => {
     setIsModalOpen(false);
     setFormData({ name: '', state: '' });
+  };
+
+  const handleDelete = (e: React.MouseEvent, city: City) => {
+    e.stopPropagation();
+    if (confirm(`Deseja realmente excluir a cidade "${city.name}"?`)) {
+      const confirmation = prompt(`Para confirmar a exclusão, digite o nome da cidade ("${city.name}"):`);
+      if (confirmation?.trim().toLowerCase() === city.name.trim().toLowerCase()) {
+        onDelete(city.id);
+      } else if (confirmation !== null) {
+        alert("O nome digitado não corresponde ao registro. Operação cancelada.");
+      }
+    }
   };
 
   const getChampName = (id: string) => championships.find(c => c.id === id)?.name || 'N/A';
@@ -161,7 +174,7 @@ const CitiesView: React.FC<CitiesViewProps> = ({ cities, events, championships, 
                     <button onClick={() => openModal(city)} className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors">
                       <Edit2 size={16} />
                     </button>
-                    <button onClick={() => onDelete(city.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
+                    <button onClick={(e) => handleDelete(e, city)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
                       <Trash2 size={16} />
                     </button>
                   </div>

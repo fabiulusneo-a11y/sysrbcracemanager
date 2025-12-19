@@ -127,6 +127,19 @@ const EventsView: React.FC<EventsViewProps> = ({
     setIsModalOpen(false);
   };
 
+  const handleDelete = (e: React.MouseEvent, event: Event) => {
+    e.stopPropagation();
+    const eventName = event.stage;
+    if (confirm(`Deseja realmente excluir o evento "${eventName}"?`)) {
+      const confirmation = prompt(`Para confirmar a exclusão, digite o nome da etapa ("${eventName}"):`);
+      if (confirmation?.trim().toLowerCase() === eventName.trim().toLowerCase()) {
+        onDelete(event.id);
+      } else if (confirmation !== null) {
+        alert("O nome digitado não corresponde ao registro. Operação cancelada.");
+      }
+    }
+  };
+
   // Availability Logic
   const getConflictingEvent = (memberId: string) => {
     if (!formData.date) return null;
@@ -428,7 +441,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                             <button onClick={() => openModal(event)} className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors">
                                 <Edit2 size={18} />
                             </button>
-                            <button onClick={() => onDelete(event.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
+                            <button onClick={(e) => handleDelete(e, event)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
                                 <Trash2 size={18} />
                             </button>
                         </div>
@@ -632,7 +645,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 <div className="flex items-center justify-between gap-2">
                                 <span className="text-sm font-medium truncate">{member.name}</span>
                                 {isSelected && <Check size={14} className="flex-shrink-0" />}
-                                {/* Fixed: Wrapped AlertCircle in a span with the title attribute to fix property error */}
                                 {isUnavailable && (
                                     <span title="Já convocado para outro evento nesta data">
                                         <AlertCircle size={14} className="text-red-500 flex-shrink-0" />

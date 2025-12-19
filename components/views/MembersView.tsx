@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Member, Event, Championship, City } from '../../types';
 import { Plus, Trash2, Edit2, User, ArrowLeft, Calendar, MapPin, Trophy, ToggleLeft, ToggleRight } from 'lucide-react';
@@ -46,6 +47,18 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
   const closeModal = () => {
     setIsModalOpen(false);
     setFormData({ name: '', role: '', active: true });
+  };
+
+  const handleDelete = (e: React.MouseEvent, member: Member) => {
+    e.stopPropagation();
+    if (confirm(`Deseja realmente excluir o integrante "${member.name}"?`)) {
+      const confirmation = prompt(`Para confirmar a exclusão, digite o nome do integrante ("${member.name}"):`);
+      if (confirmation?.trim().toLowerCase() === member.name.trim().toLowerCase()) {
+        onDelete(member.id);
+      } else if (confirmation !== null) {
+        alert("O nome digitado não corresponde ao registro. Operação cancelada.");
+      }
+    }
   };
 
   const getChampName = (id: string) => championships.find(c => c.id === id)?.name || 'N/A';
@@ -203,7 +216,7 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
                             <button onClick={() => openModal(member)} title="Editar" className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors">
                             <Edit2 size={16} />
                             </button>
-                            <button onClick={() => onDelete(member.id)} title="Excluir" className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
+                            <button onClick={(e) => handleDelete(e, member)} title="Excluir" className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
                             <Trash2 size={16} />
                             </button>
                         </div>
