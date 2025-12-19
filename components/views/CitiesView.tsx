@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { City, Event, Championship } from '../../types';
-import { Plus, Trash2, Edit2, MapPin, ArrowLeft, Calendar, Trophy } from 'lucide-react';
+import { Plus, Trash2, Edit2, MapPin, ArrowLeft, Calendar, Trophy, AlertTriangle } from 'lucide-react';
+import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
 interface CitiesViewProps {
   cities: City[];
@@ -17,6 +18,11 @@ const CitiesView: React.FC<CitiesViewProps> = ({ cities, events, championships, 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', state: '' });
+  
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; city: City | null }>({
+    isOpen: false,
+    city: null
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,18 +50,6 @@ const CitiesView: React.FC<CitiesViewProps> = ({ cities, events, championships, 
     setFormData({ name: '', state: '' });
   };
 
-  const handleDelete = (e: React.MouseEvent, city: City) => {
-    e.stopPropagation();
-    if (confirm(`Deseja realmente excluir a cidade "${city.name}"?`)) {
-      const confirmation = prompt(`Para confirmar a exclusão, digite o nome da cidade ("${city.name}"):`);
-      if (confirmation?.trim().toLowerCase() === city.name.trim().toLowerCase()) {
-        onDelete(city.id);
-      } else if (confirmation !== null) {
-        alert("O nome digitado não corresponde ao registro. Operação cancelada.");
-      }
-    }
-  };
-
   const getChampName = (id: string) => championships.find(c => c.id === id)?.name || 'N/A';
   
   const getDisplayDate = (dateStr: string) => {
@@ -63,12 +57,10 @@ const CitiesView: React.FC<CitiesViewProps> = ({ cities, events, championships, 
     return new Date(year, month - 1, day);
   };
 
-  // Sort cities by name in ascending order for the main table
   const sortedCities = [...cities].sort((a, b) => 
     a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
   );
 
-  // Drill-down Detail View
   if (selectedCityId) {
     const selectedCity = cities.find(c => c.id === selectedCityId);
     const cityEvents = events
@@ -171,10 +163,18 @@ const CitiesView: React.FC<CitiesViewProps> = ({ cities, events, championships, 
                 </td>
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => openModal(city)} className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors">
+                    <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openModal(city); }} 
+                        className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors"
+                    >
                       <Edit2 size={16} />
                     </button>
-                    <button onClick={(e) => handleDelete(e, city)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
+                    <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, city }); }} 
+                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
+                    >
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -226,6 +226,16 @@ const CitiesView: React.FC<CitiesViewProps> = ({ cities, events, championships, 
           </div>
         </div>
       )}
+
+      {/* Modal de Exclusão customizado */}
+      <DeleteConfirmModal 
+        isOpen={deleteModal.isOpen}
+        itemName={deleteModal.city?.name || ''}
+        title="Excluir Cidade"
+        description="A exclusão de uma cidade removerá a localização de todos os eventos associados. Certifique-se de que não há etapas futuras vinculadas."
+        onClose={() => setDeleteModal({ isOpen: false, city: null })}
+        onConfirm={() => deleteModal.city && onDelete(deleteModal.city.id)}
+      />
     </div>
   );
 };

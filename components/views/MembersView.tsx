@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Member, Event, Championship, City } from '../../types';
 import { Plus, Trash2, Edit2, User, ArrowLeft, Calendar, MapPin, Trophy, ToggleLeft, ToggleRight } from 'lucide-react';
+import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
 interface MembersViewProps {
   members: Member[];
@@ -18,6 +19,12 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', role: '', active: true });
+  
+  // Novo estado para exclusão
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; member: Member | null }>({
+    isOpen: false,
+    member: null
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,18 +54,6 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
   const closeModal = () => {
     setIsModalOpen(false);
     setFormData({ name: '', role: '', active: true });
-  };
-
-  const handleDelete = (e: React.MouseEvent, member: Member) => {
-    e.stopPropagation();
-    if (confirm(`Deseja realmente excluir o integrante "${member.name}"?`)) {
-      const confirmation = prompt(`Para confirmar a exclusão, digite o nome do integrante ("${member.name}"):`);
-      if (confirmation?.trim().toLowerCase() === member.name.trim().toLowerCase()) {
-        onDelete(member.id);
-      } else if (confirmation !== null) {
-        alert("O nome digitado não corresponde ao registro. Operação cancelada.");
-      }
-    }
   };
 
   const getChampName = (id: string) => championships.find(c => c.id === id)?.name || 'N/A';
@@ -213,11 +208,21 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
                         </td>
                         <td className="p-4 text-right">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openModal(member)} title="Editar" className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors">
-                            <Edit2 size={16} />
+                            <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openModal(member); }} 
+                                title="Editar" 
+                                className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors"
+                            >
+                                <Edit2 size={16} />
                             </button>
-                            <button onClick={(e) => handleDelete(e, member)} title="Excluir" className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
-                            <Trash2 size={16} />
+                            <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, member }); }} 
+                                title="Excluir" 
+                                className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
+                            >
+                                <Trash2 size={16} />
                             </button>
                         </div>
                         </td>
@@ -285,6 +290,16 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
           </div>
         </div>
       )}
+
+      {/* Modal de Exclusão customizado */}
+      <DeleteConfirmModal 
+        isOpen={deleteModal.isOpen}
+        itemName={deleteModal.member?.name || ''}
+        title="Excluir Integrante"
+        description="Ao excluir este integrante, ele será removido permanentemente da lista. Verifique se não há eventos pendentes vinculados."
+        onClose={() => setDeleteModal({ isOpen: false, member: null })}
+        onConfirm={() => deleteModal.member && onDelete(deleteModal.member.id)}
+      />
     </div>
   );
 };

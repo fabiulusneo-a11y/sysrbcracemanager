@@ -8,7 +8,7 @@ import ChampionshipsView from './components/views/ChampionshipsView';
 import EventsView from './components/views/EventsView';
 import SettingsView from './components/views/SettingsView';
 import { ViewState, AppData } from './types';
-import { Menu, X, Cloud, Loader2, Database, ExternalLink } from 'lucide-react';
+import { Menu, X, Cloud, Loader2, Database, AlertCircle } from 'lucide-react';
 import { initDatabase, sqlInsert, sqlUpdate, sqlDelete, fetchAllData, isSupabaseConfigured } from './services/databaseService';
 
 const App: React.FC = () => {
@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [configMissing, setConfigMissing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!isSupabaseConfigured()) {
@@ -26,12 +27,14 @@ const App: React.FC = () => {
         return;
     }
     setLoading(true);
+    setErrorMessage(null);
     try {
       const allData = await fetchAllData();
       setData(allData);
       setConfigMissing(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao carregar dados:", error);
+      setErrorMessage("Erro de conexão: Verifique suas credenciais do Supabase.");
     } finally {
       setLoading(false);
     }
@@ -50,6 +53,7 @@ const App: React.FC = () => {
         setConfigMissing(false);
       } catch (error) {
         console.error("Erro ao inicializar Supabase:", error);
+        setConfigMissing(true);
       } finally {
         setIsInitializing(false);
       }
@@ -58,41 +62,60 @@ const App: React.FC = () => {
   }, []);
 
   const addItem = async (table: string, item: any) => {
+    setLoading(true);
     try {
       await sqlInsert(table, item);
       await loadData();
     } catch (e: any) {
-      alert("Erro ao salvar: " + e.message);
+      alert("Erro ao salvar: " + (e.message || "Erro desconhecido"));
+    } finally {
+      setLoading(false);
     }
   };
 
   const updateItem = async (table: string, item: any) => {
+    setLoading(true);
     try {
       const { id, ...rest } = item;
       await sqlUpdate(table, id, rest);
       await loadData();
     } catch (e: any) {
-      alert("Erro ao atualizar: " + e.message);
+      alert("Erro ao atualizar: " + (e.message || "Erro desconhecido"));
+    } finally {
+      setLoading(false);
     }
   };
 
   const deleteItem = async (key: keyof AppData, table: string, id: string) => {
     if (!data) return;
-    if (table === 'championships' || table === 'cities') {
-        const inUse = data.events.some(e => 
-            (table === 'championships' && e.championshipId === id) || 
-            (table === 'cities' && e.cityId === id)
-        );
+    
+    // Verificações de Integridade Referencial
+    if (table === 'championships' || table === 'cities' || table === 'members') {
+        const inUse = data.events.some(e => {
+            if (table === 'championships') return e.championshipId === id;
+            if (table === 'cities') return e.cityId === id;
+            if (table === 'members') return e.memberIds.includes(id);
+            return false;
+        });
+
         if (inUse) {
-            alert(`Não é possível excluir. Este item está vinculado a eventos existentes.`);
+            const msg = table === 'members' 
+                ? 'Este integrante está escalado em eventos. Remova-o dos eventos antes de excluir.'
+                : 'Este item está vinculado a eventos existentes e não pode ser excluído.';
+            alert(msg);
             return;
         }
     }
+
+    setLoading(true);
     try {
       await sqlDelete(table, id);
       await loadData();
     } catch (e: any) {
-      alert("Erro ao excluir: " + e.message);
+      console.error("Erro crítico na exclusão:", e);
+      alert("Erro ao excluir: " + (e.message || "O servidor recusou a exclusão. Verifique se o item não está em uso."));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -110,24 +133,17 @@ const App: React.FC = () => {
             <Cloud size={64} className="text-blue-500 mb-6 animate-pulse" />
             <Loader2 size={32} className="text-slate-400 animate-spin mb-4" />
             <h1 className="text-xl font-bold mb-2">RBC Race Manager</h1>
-            <p className="text-slate-500 text-sm">Conectando ao Banco de Dados...</p>
+            <p className="text-slate-500 text-sm">Sincronizando banco de dados...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Se a configuração estiver faltando, força a visão de Settings
-  if (configMissing && currentView !== 'settings') {
-      setCurrentView('settings');
-  }
-
   const appData = data || { cities: [], championships: [], members: [], events: [] };
 
   const renderContent = () => {
-    if (configMissing && currentView !== 'settings') {
-        return null;
-    }
+    if (configMissing && currentView !== 'settings') return null;
 
     switch (currentView) {
       case 'dashboard':
@@ -188,11 +204,14 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-slate-950 flex text-slate-100 overflow-hidden">
+    <div className="h-screen bg-slate-950 flex text-slate-100 overflow-hidden relative">
+      {/* Overlay de Loading Global */}
       {loading && (
-        <div className="fixed top-4 right-4 z-50 bg-blue-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 animate-bounce shadow-lg">
-          <Loader2 size={12} className="animate-spin" />
-          Sincronizando...
+        <div className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center">
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
+                <Loader2 size={40} className="text-blue-500 animate-spin" />
+                <span className="text-sm font-bold text-slate-300 uppercase tracking-widest">Sincronizando...</span>
+            </div>
         </div>
       )}
 
@@ -215,8 +234,16 @@ const App: React.FC = () => {
          <Sidebar currentView={currentView} onChangeView={(view) => { setCurrentView(view); setIsMobileMenuOpen(false); }} />
       </div>
 
-      <main className="flex-1 p-4 md:p-8 pt-20 md:pt-8 overflow-y-auto h-full scrollbar-hide bg-slate-950">
+      <main className="flex-1 p-4 md:p-8 pt-20 md:pt-8 overflow-y-auto h-full bg-slate-950">
         <div className="max-w-7xl mx-auto min-h-full">
+           {errorMessage && (
+               <div className="mb-6 bg-red-900/20 border border-red-800 p-4 rounded-xl flex items-center gap-3 text-red-400">
+                   <AlertCircle size={20} />
+                   <p className="font-medium">{errorMessage}</p>
+                   <button onClick={loadData} className="ml-auto text-xs font-bold uppercase hover:underline">Tentar novamente</button>
+               </div>
+           )}
+
            {configMissing && currentView !== 'settings' ? (
                <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
                    <div className="p-4 bg-amber-900/20 border border-amber-800/50 rounded-2xl">
