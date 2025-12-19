@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Event, AppData, Member } from '../../types';
-import { Plus, Trash2, Edit2, Calendar, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, CheckCircle, HelpCircle, ToggleLeft, ToggleRight, X, Download, Table as TableIcon, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
@@ -47,6 +47,7 @@ const EventsView: React.FC<EventsViewProps> = ({
 
   const getChampName = (id: string) => data.championships.find(c => c.id === id)?.name || 'N/A';
   const getCityObj = (id: string) => data.cities.find(c => c.id === id);
+  
   const formatToBRDate = (dateStr: string) => {
     if (!dateStr) return 'N/A';
     const [year, month, day] = dateStr.split('-');
@@ -195,10 +196,8 @@ const EventsView: React.FC<EventsViewProps> = ({
                     if (cell.value === 1) {
                         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } };
                         cell.font = { color: { argb: 'FF721C24' }, bold: true };
-                    } else { cell.font = { color: { argb: isStriped ? 'FFD9E1F2' : 'FFFFFFFF' } }; }
+                    } else { cell.font = { color: { argb: 'FF334155' } }; }
                     cell.alignment = { horizontal: 'center' };
-                } else {
-                    cell.alignment = { horizontal: colNumber === 1 || colNumber === 3 || colNumber === 5 || colNumber === 6 ? 'center' : 'left' };
                 }
                 cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
@@ -215,6 +214,10 @@ const EventsView: React.FC<EventsViewProps> = ({
     } catch (error) {
         console.error("Export Error:", error);
     } finally { setIsExporting(false); }
+  };
+
+  const getMemberTotal = (memberId: string) => {
+    return filteredEvents.reduce((acc, event) => acc + (event.memberIds.includes(memberId) ? 1 : 0), 0);
   };
 
   return (
@@ -238,7 +241,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                 className="flex-1 sm:flex-none justify-center bg-blue-700 hover:bg-blue-600 text-white border border-blue-800 disabled:opacity-50 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
             >
                 <TableIcon size={18} />
-                <span>Exportar Analítico</span>
+                <span>Modo Analítico</span>
             </button>
             <button
                 type="button"
@@ -378,39 +381,131 @@ const EventsView: React.FC<EventsViewProps> = ({
       />
 
       {isAnalyticalModalOpen && (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
-              <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-[95vw] h-[90vh] flex flex-col overflow-hidden">
-                  <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+          <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
+              <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-[98vw] h-[92vh] flex flex-col overflow-hidden">
+                  <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/80">
                       <div>
-                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
                             <FileSpreadsheet className="text-blue-500" />
-                            Relatório Analítico de Convocação
+                            Matriz Analítica de Convocação
                         </h3>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                           <button 
                             type="button"
                             onClick={exportAnalyticalStyled}
                             disabled={isExporting}
-                            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 disabled:opacity-50"
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 disabled:opacity-50"
                           >
-                              {isExporting ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
-                              {isExporting ? 'Processando...' : 'Baixar Excel'}
+                              {isExporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+                              {isExporting ? 'Processando...' : 'Exportar Excel'}
                           </button>
                           <button type="button" onClick={() => setIsAnalyticalModalOpen(false)} className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-lg">
-                              <X size={24} />
+                              <X size={20} />
                           </button>
                       </div>
                   </div>
-                  <div className="flex-1 overflow-auto p-6 bg-slate-100">
-                      <p className="text-slate-800 font-medium">O arquivo Excel gerado contém a matriz completa de escala de cada integrante.</p>
-                      <div className="mt-8 flex justify-center">
-                          <div className="bg-white p-8 rounded-xl shadow-xl border border-slate-200 max-w-lg text-center">
-                              <TableIcon size={48} className="text-blue-500 mx-auto mb-4" />
-                              <h4 className="text-lg font-bold text-slate-900 mb-2">Pronto para Exportar</h4>
-                              <p className="text-slate-600 text-sm">Clique no botão "Baixar Excel" no topo para gerar a planilha analítica detalhada.</p>
+                  
+                  <div className="flex-1 overflow-auto bg-white p-0 relative">
+                      <div className="min-w-max inline-block align-top">
+                        <table className="border-collapse table-auto">
+                            <thead className="sticky top-0 z-40">
+                                <tr className="bg-[#4472C4] text-white">
+                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider sticky left-0 z-50 bg-[#4472C4] w-[85px] text-center align-middle">Data</th>
+                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider sticky left-[85px] z-50 bg-[#4472C4] w-[180px] text-left align-middle">Campeonato</th>
+                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider w-[45px] text-center align-middle">Et.</th>
+                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider w-[120px] text-left align-middle">Cidade</th>
+                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider w-[35px] text-center align-middle">UF</th>
+                                    <th className="p-2 border border-white/30 text-[10px] font-bold uppercase tracking-wider w-[80px] text-center align-middle">Status</th>
+                                    {sortedMembersList.map(member => (
+                                        <th key={member.id} className="p-2 border border-white/30 relative bg-[#4472C4] w-[40px] min-w-[40px] text-center align-middle">
+                                            <span className="[writing-mode:vertical-rl] rotate-180 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-white leading-none inline-block">
+                                                {member.name}
+                                            </span>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="z-10 relative">
+                                {filteredEvents.map((event, idx) => {
+                                    const city = getCityObj(event.cityId);
+                                    const champName = getChampName(event.championshipId);
+                                    const isConfirmed = event.confirmed !== false;
+                                    const rowBgClass = idx % 2 === 0 ? 'bg-white' : 'bg-gray-100';
+                                    
+                                    return (
+                                        <tr key={event.id} className={`border-b border-slate-300 transition-colors hover:bg-blue-50/50 ${rowBgClass}`}>
+                                            <td className={`p-2 border border-slate-300 font-mono text-[10px] text-black font-semibold sticky left-0 z-30 text-center ${rowBgClass}`}>
+                                                {formatToBRDate(event.date)}
+                                            </td>
+                                            <td className={`p-2 border border-slate-300 font-bold text-black text-[10px] sticky left-[85px] z-30 ${rowBgClass}`}>
+                                                <div className="truncate max-w-[170px]">{champName}</div>
+                                            </td>
+                                            <td className={`p-2 border border-slate-300 text-[10px] text-slate-900 text-center font-medium ${rowBgClass}`}>
+                                                {event.stage.replace(/\D/g, '') || (idx + 1).toString().padStart(2, '0')}
+                                            </td>
+                                            <td className={`p-2 border border-slate-300 text-[10px] text-slate-900 truncate max-w-[110px] font-medium ${rowBgClass}`}>
+                                                {city?.name || 'N/A'}
+                                            </td>
+                                            <td className={`p-2 border border-slate-300 text-[10px] text-slate-900 text-center font-medium ${rowBgClass}`}>
+                                                {city?.state || '??'}
+                                            </td>
+                                            <td className={`p-2 border border-slate-300 text-center ${rowBgClass}`}>
+                                                <span className={`text-[8px] font-bold px-1 py-0.5 rounded border inline-block ${
+                                                    isConfirmed ? 'bg-green-100 text-green-800 border-green-200' : 'bg-amber-100 text-amber-800 border-amber-200'
+                                                }`}>
+                                                    {isConfirmed ? 'CONFIRM' : 'INDEF'}
+                                                </span>
+                                            </td>
+                                            {sortedMembersList.map(member => {
+                                                const isConvocado = event.memberIds.includes(member.id);
+                                                return (
+                                                    <td key={member.id} className={`p-1 border border-slate-300 text-center text-[11px] font-bold ${isConvocado ? 'bg-red-50 text-red-600' : 'text-blue-300'} ${rowBgClass}`}>
+                                                        {isConvocado ? '1' : '0'}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                            <tfoot className="sticky bottom-0 z-40 shadow-[0_-2px_4px_rgba(0,0,0,0.1)]">
+                                <tr className="bg-slate-200 font-bold border-t-2 border-slate-400">
+                                    <td colSpan={6} className="p-2 text-right text-[10px] uppercase tracking-wider text-black sticky left-0 bg-slate-200 z-50 border border-slate-300">
+                                        Total de Convocações:
+                                    </td>
+                                    {sortedMembersList.map(member => (
+                                        <td key={member.id} className="p-1 text-center border border-slate-300 text-[11px] font-bold bg-red-100 text-red-700">
+                                            {getMemberTotal(member.id)}
+                                        </td>
+                                    ))}
+                                </tr>
+                            </tfoot>
+                        </table>
+                        {filteredEvents.length === 0 && (
+                            <div className="p-20 text-center flex flex-col items-center justify-center gap-4 bg-white w-full">
+                                <AlertCircle size={48} className="text-slate-300" />
+                                <p className="text-slate-500 font-bold text-lg">Nenhum evento encontrado nos dados.</p>
+                                <p className="text-slate-400 text-sm">Verifique os filtros de data ou se há eventos cadastrados.</p>
+                            </div>
+                        )}
+                      </div>
+                  </div>
+                  
+                  <div className="p-2 bg-slate-50 border-t border-slate-300 flex items-center justify-between text-[10px] text-slate-700">
+                      <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1">
+                              <span className="font-bold text-red-600 text-xs">1</span>
+                              <span className="uppercase tracking-tighter font-medium">Escalado</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                              <span className="font-bold text-blue-300 text-xs">0</span>
+                              <span className="uppercase tracking-tighter font-medium">Livre</span>
                           </div>
                       </div>
+                      <p className="font-bold uppercase tracking-tight">
+                          PREVIEW OPERACIONAL • {filteredEvents.length} EVENTOS • {sortedMembersList.length} INTEGRANTES
+                      </p>
                   </div>
               </div>
           </div>
