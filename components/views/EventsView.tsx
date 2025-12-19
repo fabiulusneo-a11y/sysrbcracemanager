@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Event, AppData, Member } from '../../types';
-import { Plus, Trash2, Edit2, Calendar, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, CheckCircle, HelpCircle, ToggleLeft, ToggleRight, X, Download, Table as TableIcon } from 'lucide-react';
+import { Plus, Trash2, Edit2, Calendar, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, CheckCircle, HelpCircle, ToggleLeft, ToggleRight, X, Download, Table as TableIcon, Loader2 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
@@ -325,6 +325,26 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 </div>
                             </div>
                         </div>
+                        <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/50">
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                <Users size={14} className="text-slate-600" />
+                                Equipe Convocada
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {memberNames.length > 0 ? (
+                                    memberNames.map((name, idx) => (
+                                        <span key={idx} className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-md text-[10px] font-medium">
+                                            {name}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-amber-600 text-[10px] font-bold italic flex items-center gap-1">
+                                        <AlertCircle size={10} />
+                                        Sem escala definida
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex md:flex-col gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
@@ -348,7 +368,6 @@ const EventsView: React.FC<EventsViewProps> = ({
         })}
       </div>
 
-      {/* Modal de Exclusão customizado */}
       <DeleteConfirmModal 
         isOpen={deleteModal.isOpen}
         itemName={deleteModal.event?.stage || ''}
@@ -358,7 +377,136 @@ const EventsView: React.FC<EventsViewProps> = ({
         onConfirm={() => deleteModal.event && onDelete(deleteModal.event.id)}
       />
 
-      {/* Restante dos modais de edição e analítico... */}
+      {isAnalyticalModalOpen && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
+              <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-[95vw] h-[90vh] flex flex-col overflow-hidden">
+                  <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+                      <div>
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                            <FileSpreadsheet className="text-blue-500" />
+                            Relatório Analítico de Convocação
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-4">
+                          <button 
+                            type="button"
+                            onClick={exportAnalyticalStyled}
+                            disabled={isExporting}
+                            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 disabled:opacity-50"
+                          >
+                              {isExporting ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
+                              {isExporting ? 'Processando...' : 'Baixar Excel'}
+                          </button>
+                          <button type="button" onClick={() => setIsAnalyticalModalOpen(false)} className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-lg">
+                              <X size={24} />
+                          </button>
+                      </div>
+                  </div>
+                  <div className="flex-1 overflow-auto p-6 bg-slate-100">
+                      <p className="text-slate-800 font-medium">O arquivo Excel gerado contém a matriz completa de escala de cada integrante.</p>
+                      <div className="mt-8 flex justify-center">
+                          <div className="bg-white p-8 rounded-xl shadow-xl border border-slate-200 max-w-lg text-center">
+                              <TableIcon size={48} className="text-blue-500 mx-auto mb-4" />
+                              <h4 className="text-lg font-bold text-slate-900 mb-2">Pronto para Exportar</h4>
+                              <p className="text-slate-600 text-sm">Clique no botão "Baixar Excel" no topo para gerar a planilha analítica detalhada.</p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-6 text-white">{editingId ? 'Editar Evento' : 'Novo Evento'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Campeonato</label>
+                    <select
+                        required
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                        value={formData.championshipId}
+                        onChange={e => setFormData({ ...formData, championshipId: e.target.value })}
+                    >
+                        <option value="" disabled>Selecione...</option>
+                        {data.championships.map(c => ( <option key={c.id} value={c.id}>{c.name}</option> ))}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Etapa</label>
+                    <input
+                        type="text"
+                        required
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                        value={formData.stage}
+                        onChange={e => setFormData({ ...formData, stage: e.target.value })}
+                    />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Data</label>
+                    <input
+                        type="date"
+                        required
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]"
+                        value={formData.date}
+                        onChange={e => setFormData({ ...formData, date: e.target.value, memberIds: [] })}
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Cidade</label>
+                    <select
+                        required
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                        value={formData.cityId}
+                        onChange={e => setFormData({ ...formData, cityId: e.target.value })}
+                    >
+                        <option value="" disabled>Selecione...</option>
+                        {sortedCities.map(c => ( <option key={c.id} value={c.id}>{c.name} - {c.state}</option> ))}
+                    </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Integrantes Convocados</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 border border-slate-700 rounded-lg p-3 bg-slate-950 max-h-64 overflow-y-auto">
+                    {sortedMembersList.map(member => {
+                        const isSelected = formData.memberIds.includes(member.id);
+                        const conflict = getConflictingEvent(member.id);
+                        const isUnavailable = !!conflict;
+                        
+                        return (
+                            <div 
+                                key={member.id} 
+                                onClick={() => !isUnavailable && toggleMember(member.id)}
+                                className={`p-2 rounded border flex flex-col gap-1 transition-all select-none
+                                    ${isSelected ? 'bg-red-900/30 border-red-800 text-red-300' : 'bg-slate-900 border-slate-800 text-slate-400'}
+                                    ${isUnavailable ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer hover:border-slate-600'}
+                                `}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium truncate">{member.name}</span>
+                                    {isSelected && <Check size={14} />}
+                                    {isUnavailable && <AlertCircle size={14} className="text-red-500" />}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" onClick={closeModal} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors">Salvar Evento</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

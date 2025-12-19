@@ -237,9 +237,95 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
             )}
         </div>
 
-        {/* Modais omitidos para brevidade, mas mantidos no arquivo real */}
-        {/* Adicionar Evento Modal e Editar Evento Modal seriam mantidos aqui */}
+        {/* Modal: Adicionar Evento */}
+        {isAddEventModalOpen && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+                <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/50 sticky top-0 z-10">
+                        <h3 className="font-bold text-slate-100 flex items-center gap-2">
+                            <Plus size={18} className="text-red-500" />
+                            Nova Etapa: {selectedChamp?.name}
+                        </h3>
+                        <button type="button" onClick={() => setIsAddEventModalOpen(false)} className="text-slate-500 hover:text-white">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <form onSubmit={handleAddEventSubmit} className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nome da Etapa</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                                    value={newEventData.stage}
+                                    onChange={e => setNewEventData({ ...newEventData, stage: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Data</label>
+                                <input
+                                    type="date"
+                                    required
+                                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]"
+                                    value={newEventData.date}
+                                    onChange={e => setNewEventData({ ...newEventData, date: e.target.value, memberIds: [] })}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                            <button type="button" onClick={() => setIsAddEventModalOpen(false)} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors">Cancelar</button>
+                            <button type="submit" className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors">Salvar Etapa</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
 
+        {/* Modal: Editar Evento */}
+        {editingEvent && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+                <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/50 sticky top-0 z-10">
+                        <h3 className="font-bold text-slate-100 flex items-center gap-2">
+                            <Edit2 size={18} className="text-red-500" />
+                            Editar {editingEvent.stage}
+                        </h3>
+                        <button type="button" onClick={() => setEditingEvent(null)} className="text-slate-500 hover:text-white">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <form onSubmit={handleEventUpdateSubmit} className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nome da Etapa</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                                    value={editingEvent.stage}
+                                    onChange={e => setEditingEvent({ ...editingEvent, stage: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Data</label>
+                                <input
+                                    type="date"
+                                    required
+                                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]"
+                                    value={editingEvent.date}
+                                    onChange={e => setEditingEvent({ ...editingEvent, date: e.target.value, memberIds: [] })}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                            <button type="button" onClick={() => setEditingEvent(null)} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors">Descartar</button>
+                            <button type="submit" className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors">Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
       </div>
     );
   }
@@ -318,7 +404,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
         </div>
       )}
 
-      {/* Modal de Exclusão customizado */}
       <DeleteConfirmModal 
         isOpen={deleteModal.isOpen}
         itemName={deleteModal.champ?.name || ''}

@@ -7,8 +7,9 @@ import CitiesView from './components/views/CitiesView';
 import ChampionshipsView from './components/views/ChampionshipsView';
 import EventsView from './components/views/EventsView';
 import SettingsView from './components/views/SettingsView';
-import { ViewState, AppData } from './types';
-import { Menu, X, Cloud, Loader2, Database, AlertCircle } from 'lucide-react';
+import AIAssistantView from './components/views/AIAssistantView';
+import { ViewState, AppData, Event, Championship, City, Member } from './types';
+import { Menu, X, Cloud, Loader2, Database, AlertCircle, Info } from 'lucide-react';
 import { initDatabase, sqlInsert, sqlUpdate, sqlDelete, fetchAllData, isSupabaseConfigured } from './services/databaseService';
 
 const App: React.FC = () => {
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [configMissing, setConfigMissing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [warningMessage, setWarningMessage] = useState<{title: string, msg: string} | null>(null);
 
   const loadData = async () => {
     if (!isSupabaseConfigured()) {
@@ -67,7 +69,7 @@ const App: React.FC = () => {
       await sqlInsert(table, item);
       await loadData();
     } catch (e: any) {
-      alert("Erro ao salvar: " + (e.message || "Erro desconhecido"));
+      setErrorMessage("Erro ao salvar: " + (e.message || "Erro desconhecido"));
     } finally {
       setLoading(false);
     }
@@ -80,16 +82,15 @@ const App: React.FC = () => {
       await sqlUpdate(table, id, rest);
       await loadData();
     } catch (e: any) {
-      alert("Erro ao atualizar: " + (e.message || "Erro desconhecido"));
+      setErrorMessage("Erro ao atualizar: " + (e.message || "Erro desconhecido"));
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteItem = async (key: keyof AppData, table: string, id: string) => {
+  const deleteItem = async (table: string, id: string) => {
     if (!data) return;
     
-    // Verificações de Integridade Referencial
     if (table === 'championships' || table === 'cities' || table === 'members') {
         const inUse = data.events.some(e => {
             if (table === 'championships') return e.championshipId === id;
@@ -102,7 +103,7 @@ const App: React.FC = () => {
             const msg = table === 'members' 
                 ? 'Este integrante está escalado em eventos. Remova-o dos eventos antes de excluir.'
                 : 'Este item está vinculado a eventos existentes e não pode ser excluído.';
-            alert(msg);
+            setWarningMessage({ title: 'Bloqueio de Exclusão', msg });
             return;
         }
     }
@@ -112,11 +113,26 @@ const App: React.FC = () => {
       await sqlDelete(table, id);
       await loadData();
     } catch (e: any) {
-      console.error("Erro crítico na exclusão:", e);
-      alert("Erro ao excluir: " + (e.message || "O servidor recusou a exclusão. Verifique se o item não está em uso."));
+      setErrorMessage("Erro ao excluir: " + (e.message || "O servidor recusou a exclusão."));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImport = async (newEvents: Event[], newChamps: Championship[], newCities: City[], newMembers: Member[]) => {
+      setLoading(true);
+      try {
+          // Batch insertion (simple sequential for reliability)
+          for (const c of newChamps) await sqlInsert('championships', c);
+          for (const c of newCities) await sqlInsert('cities', c);
+          for (const m of newMembers) await sqlInsert('members', m);
+          for (const e of newEvents) await sqlInsert('events', e);
+          await loadData();
+      } catch (e: any) {
+          setErrorMessage("Erro na importação: " + (e.message || "Erro desconhecido"));
+      } finally {
+          setLoading(false);
+      }
   };
 
   const handleEditEventNavigation = (id: string) => {
@@ -157,7 +173,7 @@ const App: React.FC = () => {
             cities={appData.cities}
             onAdd={m => addItem('members', m)} 
             onUpdate={m => updateItem('members', m)} 
-            onDelete={id => deleteItem('members', 'members', id)} 
+            onDelete={id => deleteItem('members', id)} 
           />
         );
       case 'cities':
@@ -168,7 +184,7 @@ const App: React.FC = () => {
             championships={appData.championships}
             onAdd={c => addItem('cities', c)} 
             onUpdate={c => updateItem('cities', c)} 
-            onDelete={id => deleteItem('cities', 'cities', id)} 
+            onDelete={id => deleteItem('cities', id)} 
           />
         );
       case 'championships':
@@ -180,7 +196,7 @@ const App: React.FC = () => {
             members={appData.members}
             onAdd={c => addItem('championships', c)} 
             onUpdate={c => updateItem('championships', c)} 
-            onDelete={id => deleteItem('championships', 'championships', id)} 
+            onDelete={id => deleteItem('championships', id)} 
             onUpdateEvent={e => updateItem('events', e)}
             onAddEvent={e => addItem('events', e)}
           />
@@ -191,7 +207,7 @@ const App: React.FC = () => {
                 data={appData} 
                 onAdd={e => addItem('events', e)} 
                 onUpdate={e => updateItem('events', e)} 
-                onDelete={id => deleteItem('events', 'events', id)}
+                onDelete={id => deleteItem('events', id)}
                 initialEditingId={editingEventId}
                 onClearEditingId={() => setEditingEventId(null)}
             />
@@ -205,7 +221,6 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen bg-slate-950 flex text-slate-100 overflow-hidden relative">
-      {/* Overlay de Loading Global */}
       {loading && (
         <div className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center">
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
@@ -213,6 +228,25 @@ const App: React.FC = () => {
                 <span className="text-sm font-bold text-slate-300 uppercase tracking-widest">Sincronizando...</span>
             </div>
         </div>
+      )}
+
+      {/* Warning Modal */}
+      {warningMessage && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
+                  <div className="flex items-center gap-3 text-amber-500 mb-4">
+                      <Info size={24} />
+                      <h3 className="font-bold text-lg">{warningMessage.title}</h3>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-6">{warningMessage.msg}</p>
+                  <button 
+                    onClick={() => setWarningMessage(null)}
+                    className="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl font-bold transition-colors"
+                  >
+                      Entendido
+                  </button>
+              </div>
+          </div>
       )}
 
       <div className="md:hidden fixed top-0 left-0 w-full bg-slate-900 border-b border-slate-800 text-white z-20 flex items-center justify-between p-4 shadow-md">
@@ -237,10 +271,10 @@ const App: React.FC = () => {
       <main className="flex-1 p-4 md:p-8 pt-20 md:pt-8 overflow-y-auto h-full bg-slate-950">
         <div className="max-w-7xl mx-auto min-h-full">
            {errorMessage && (
-               <div className="mb-6 bg-red-900/20 border border-red-800 p-4 rounded-xl flex items-center gap-3 text-red-400">
+               <div className="mb-6 bg-red-900/20 border border-red-800 p-4 rounded-xl flex items-center gap-3 text-red-400 animate-in slide-in-from-top duration-300">
                    <AlertCircle size={20} />
                    <p className="font-medium">{errorMessage}</p>
-                   <button onClick={loadData} className="ml-auto text-xs font-bold uppercase hover:underline">Tentar novamente</button>
+                   <button onClick={() => setErrorMessage(null)} className="ml-auto p-1 hover:bg-red-900/40 rounded"><X size={16} /></button>
                </div>
            )}
 
