@@ -204,8 +204,8 @@ const EventsView: React.FC<EventsViewProps> = ({
         <title>Matriz RBC - ${new Date().toLocaleDateString('pt-BR')}</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
         <style>
-          @page { size: A4 landscape; margin: 0.8cm; }
-          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #0D0D0D; font-size: 8px; line-height: 1.1; }
+          @page { size: A4 landscape; margin: 0.8cm 0.8cm 1.5cm 0.8cm; }
+          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #0D0D0D; font-size: 8px; line-height: 1.1; counter-reset: page; }
           
           table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #94a3b8; }
           thead { display: table-header-group; }
@@ -242,11 +242,35 @@ const EventsView: React.FC<EventsViewProps> = ({
             font-weight: 800; font-size: 9px; cursor: pointer; text-transform: uppercase;
           }
 
+          /* Rodapé Fixo para Impressão */
+          #footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 7px;
+            color: #94a3b8;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-top: 1px solid #cbd5e1;
+            background: white;
+            padding: 0 10px;
+          }
+
+          .page-counter::after {
+            content: "Página " counter(page) " / " counter(pages);
+          }
+
           @media print {
             .print-toolbar { display: none !important; }
             body { padding: 0; }
             thead { display: table-header-group; }
             th { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #d9d9d9 !important; color: #0D0D0D !important; }
+            #footer { display: flex !important; }
           }
         </style>
       </head>
@@ -291,9 +315,10 @@ const EventsView: React.FC<EventsViewProps> = ({
           </tfoot>
         </table>
 
-        <div style="margin-top: 10px; border-top: 1px solid #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; font-size: 7px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">
-            <span>Matriz Técnica • RBC Motorsport Management System</span>
-            <span>Documento Técnico de Equipe • Configuração A4 Paisagem</span>
+        <div id="footer">
+            <span>RBC Motorsport • Gerado via RBC System</span>
+            <span>Documento Técnico • Configuração A4 Paisagem</span>
+            <span class="page-counter"></span>
         </div>
       </body>
       </html>
