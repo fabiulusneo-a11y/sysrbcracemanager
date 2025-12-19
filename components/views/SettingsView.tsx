@@ -23,8 +23,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onDataChanged }) => {
     setTimeout(() => {
       setSaveStatus('saved');
       setIsConfigured(isSupabaseConfigured());
-      onDataChanged();
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      // Em vez de apenas carregar dados, recarregamos a aplicação para garantir que o listener de auth reinicie com a nova instância
+      setTimeout(() => window.location.reload(), 500);
     }, 800);
   };
 
@@ -34,7 +34,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onDataChanged }) => {
         localStorage.removeItem('RBC_SUPABASE_KEY');
         setUrl('https://jrgzsvjarnaiwxzwkeve.supabase.co');
         setKey('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyZ3pzdmphcm5haXd4endrZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwOTkyNTgsImV4cCI6MjA4MTY3NTI1OH0.tLmJix-r76m58BzJgUFJsg0xZiApJQ2NLZvOBvEu9Cw');
-        setIsConfigured(true); // Continua configurado pois o sistema tem fallback
+        setIsConfigured(true);
         location.reload();
     }
   };

@@ -10,11 +10,15 @@ export interface Championship {
   name: string;
 }
 
+export type UserRole = 'Master' | 'Admin' | 'User';
+
 export interface Member {
   id: string;
   name: string;
   role: string; // e.g., Piloto, Mecânico, Chefe de Equipe
   active: boolean; // Status of the member in the company
+  email?: string; // Email for system access authorization
+  usertype?: UserRole; // Permissão de acesso (Master, Admin, User)
 }
 
 export interface Event {

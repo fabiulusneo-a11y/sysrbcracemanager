@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Member, Event, Championship, City } from '../../types';
-import { Plus, Trash2, Edit2, User, ArrowLeft, Calendar, MapPin, Trophy, ToggleLeft, ToggleRight, Printer, X } from 'lucide-react';
+import { Member, Event, Championship, City, UserRole } from '../../types';
+import { Plus, Trash2, Edit2, User, ArrowLeft, Calendar, MapPin, Trophy, ToggleLeft, ToggleRight, Printer, X, Mail, ShieldCheck } from 'lucide-react';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
 interface MembersViewProps {
@@ -18,7 +18,13 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', role: '', active: true });
+  const [formData, setFormData] = useState<{name: string, role: string, active: boolean, email: string, usertype: UserRole}>({ 
+    name: '', 
+    role: '', 
+    active: true, 
+    email: '',
+    usertype: 'User'
+  });
   
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; member: Member | null }>({
     isOpen: false,
@@ -183,23 +189,36 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
       setFormData({ 
         name: member.name, 
         role: member.role, 
-        active: member.active !== undefined ? member.active : true 
+        active: member.active !== undefined ? member.active : true,
+        email: member.email || '',
+        usertype: member.usertype || 'User'
       });
     } else {
       setEditingId(null);
-      setFormData({ name: '', role: '', active: true });
+      setFormData({ name: '', role: '', active: true, email: '', usertype: 'User' });
     }
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
-    setFormData({ name: '', role: '', active: true });
+    setFormData({ name: '', role: '', active: true, email: '', usertype: 'User' });
   };
 
   const sortedMembers = [...members].sort((a, b) => 
     a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
   );
+
+  const getUserTypeBadge = (type?: UserRole) => {
+    switch(type) {
+      case 'Master':
+        return <span className="bg-purple-900/40 text-purple-300 border border-purple-800 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider">Master</span>;
+      case 'Admin':
+        return <span className="bg-blue-900/40 text-blue-300 border border-blue-800 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider">Admin</span>;
+      default:
+        return <span className="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider">User</span>;
+    }
+  };
 
   if (selectedMemberId) {
     const selectedMember = members.find(m => m.id === selectedMemberId);
@@ -220,18 +239,26 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
                     <div>
                         <div className="flex items-center gap-3">
                             <h2 className="text-2xl font-bold text-slate-100">{selectedMember?.name}</h2>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                selectedMember?.active ? 'bg-green-900/20 text-green-400 border-green-800' : 'bg-slate-800 text-slate-500 border-slate-700'
-                            }`}>
-                                {selectedMember?.active ? 'Ativo' : 'Inativo'}
-                            </span>
+                            <div className="flex gap-2">
+                                {getUserTypeBadge(selectedMember?.usertype)}
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                    selectedMember?.active ? 'bg-green-900/20 text-green-400 border-green-800' : 'bg-slate-800 text-slate-500 border-slate-700'
+                                }`}>
+                                    {selectedMember?.active ? 'Ativo' : 'Inativo'}
+                                </span>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-slate-400">{selectedMember?.role}</p>
-                          <span className="text-slate-600">•</span>
-                          <p className="text-red-500 font-bold text-sm">
-                            {memberEvents.length} {memberEvents.length === 1 ? 'evento agendado' : 'eventos agendados'}
-                          </p>
+                          {selectedMember?.email && (
+                            <>
+                              <span className="text-slate-600">•</span>
+                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                <Mail size={12} />
+                                {selectedMember.email}
+                              </div>
+                            </>
+                          )}
                         </div>
                     </div>
                 </div>
@@ -307,7 +334,7 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
             <thead>
                 <tr className="bg-slate-950 border-b border-slate-800">
                 <th className="p-4 font-semibold text-slate-400 text-sm">Nome</th>
-                <th className="p-4 font-semibold text-slate-400 text-sm">Função</th>
+                <th className="p-4 font-semibold text-slate-400 text-sm">Tipo / Acesso</th>
                 <th className="p-4 font-semibold text-slate-400 text-sm">Status</th>
                 <th className="p-4 font-semibold text-slate-400 text-sm text-right">Ações</th>
                 </tr>
@@ -325,27 +352,40 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${member.active ? 'bg-slate-800 text-slate-500' : 'bg-slate-900 text-slate-700'}`}>
                                 <User size={16} />
                             </div>
-                            <span 
-                                className={`font-medium cursor-pointer hover:text-red-500 transition-colors ${member.active ? 'text-slate-200' : 'text-slate-500 italic'}`}
-                                onClick={() => setSelectedMemberId(member.id)}
-                            >
-                                {member.name}
-                            </span>
+                            <div className="flex flex-col">
+                                <span 
+                                    className={`font-medium cursor-pointer hover:text-red-500 transition-colors ${member.active ? 'text-slate-200' : 'text-slate-500 italic'}`}
+                                    onClick={() => setSelectedMemberId(member.id)}
+                                >
+                                    {member.name}
+                                </span>
+                                {member.email && <span className="text-[10px] text-slate-500 font-mono">{member.email}</span>}
+                            </div>
                         </div>
                         </td>
                         <td className="p-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                            member.active ? 'bg-blue-900/30 text-blue-300 border-blue-900/50' : 'bg-slate-800/50 text-slate-500 border-slate-700'
-                        }`}>
-                            {member.role}
-                        </span>
+                            <div className="flex flex-col gap-1.5 items-start">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                                    member.active ? 'bg-blue-900/30 text-blue-300 border-blue-900/50' : 'bg-slate-800/50 text-slate-500 border-slate-700'
+                                }`}>
+                                    {member.role}
+                                </span>
+                                {getUserTypeBadge(member.usertype)}
+                            </div>
                         </td>
                         <td className="p-4">
-                          <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border ${
-                              member.active ? 'text-green-500 border-green-900/50' : 'text-slate-500 border-slate-800'
-                          }`}>
-                              {member.active ? 'Ativo' : 'Desligado'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                                member.active ? 'text-green-500 border-green-900/50' : 'text-slate-500 border-slate-800'
+                            }`}>
+                                {member.active ? 'Ativo' : 'Bloqueado'}
+                            </span>
+                            {member.email && (
+                                <div title="Possui e-mail de acesso" className="text-blue-500">
+                                    <Mail size={12} />
+                                </div>
+                            )}
+                          </div>
                         </td>
                         <td className="p-4 text-right">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -385,18 +425,52 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
                 <input
                   type="text"
                   required
-                  className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                  className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Ex: João Silva"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1 flex justify-between items-center">
+                    E-mail de Acesso
+                    <span className="text-[10px] text-slate-500 font-normal italic">Deve ser o mesmo usado no Login</span>
+                </label>
+                <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+                    <input
+                    type="email"
+                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 pl-10 text-white focus:ring-2 focus:ring-red-500 outline-none transition-all placeholder:text-slate-800"
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value.toLowerCase() })}
+                    placeholder="usuario@acesso.com"
+                    />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Função</label>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Tipo de Usuário</label>
+                    <div className="relative">
+                        <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" size={16} />
+                        <select
+                        required
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 pl-10 text-white focus:ring-2 focus:ring-red-500 outline-none appearance-none"
+                        value={formData.usertype}
+                        onChange={e => setFormData({ ...formData, usertype: e.target.value as UserRole })}
+                        >
+                            <option value="Master">Master</option>
+                            <option value="Admin">Admin</option>
+                            <option value="User">User</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Cargo / Função</label>
                     <select
                     required
-                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
                     value={formData.role}
                     onChange={e => setFormData({ ...formData, role: e.target.value })}
                     >
@@ -406,38 +480,39 @@ const MembersView: React.FC<MembersViewProps> = ({ members, events, championship
                         <option value="Chefe de Equipe">Chefe de Equipe</option>
                         <option value="Telemetrista">Telemetrista</option>
                         <option value="Apoio">Apoio</option>
+                        <option value="Administrador">Administrador</option>
                     </select>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Status</label>
-                    <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, active: !formData.active })}
-                        className={`w-full flex items-center justify-between rounded-lg border p-2.5 transition-colors ${
-                            formData.active ? 'bg-green-900/10 border-green-800/50 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400'
-                        }`}
-                    >
-                        <span className="text-sm font-medium">{formData.active ? 'Ativo' : 'Inativo'}</span>
-                        {formData.active ? <ToggleRight className="text-green-500" /> : <ToggleLeft className="text-slate-600" />}
-                    </button>
-                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Status de Acesso</label>
+                <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, active: !formData.active })}
+                    className={`w-full flex items-center justify-between rounded-lg border p-2.5 transition-colors ${
+                        formData.active ? 'bg-green-900/10 border-green-800/50 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400'
+                    }`}
+                >
+                    <span className="text-sm font-medium">{formData.active ? 'Ativo (Acesso Permitido)' : 'Bloqueado (Acesso Negado)'}</span>
+                    {formData.active ? <ToggleRight className="text-green-500" /> : <ToggleLeft className="text-slate-600" />}
+                </button>
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={closeModal} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors">Salvar</button>
+                <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors shadow-lg shadow-red-900/20">Salvar Integrante</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Fixed: Use 'deleteModal' instead of 'deleteMember' */}
       <DeleteConfirmModal 
         isOpen={deleteModal.isOpen}
         itemName={deleteModal.member?.name || ''}
         title="Excluir Integrante"
-        description="Ao excluir este integrante, ele será removido permanentemente da lista. Verifique se não há eventos pendentes vinculados."
+        description="Ao excluir este integrante, ele perderá imediatamente o acesso ao sistema se tiver um e-mail vinculado."
         onClose={() => setDeleteModal({ isOpen: false, member: null })}
         onConfirm={() => deleteModal.member && onDelete(deleteModal.member.id)}
       />

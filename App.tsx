@@ -7,9 +7,12 @@ import CitiesView from './components/views/CitiesView';
 import ChampionshipsView from './components/views/ChampionshipsView';
 import EventsView from './components/views/EventsView';
 import SettingsView from './components/views/SettingsView';
+import LoginView from './components/views/LoginView';
 import { ViewState, AppData, Event, Championship, City, Member } from './types';
 import { Menu, X, Cloud, Loader2, Database, AlertCircle, Info, RefreshCw } from 'lucide-react';
-import { initDatabase, sqlInsert, sqlUpdate, sqlDelete, fetchAllData, isSupabaseConfigured } from './services/databaseService';
+// Fixed: Removed non-existent initDatabase import from databaseService
+import { sqlInsert, sqlUpdate, sqlDelete, fetchAllData, isSupabaseConfigured, onAuthStateChange } from './services/databaseService';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
@@ -21,6 +24,7 @@ const App: React.FC = () => {
   const [configMissing, setConfigMissing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState<{title: string, msg: string} | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
 
   const loadData = async () => {
     if (!isSupabaseConfigured()) {
@@ -42,27 +46,27 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const setup = async () => {
-      setIsInitializing(true);
-      if (!isSupabaseConfigured()) {
-          setConfigMissing(true);
-          setIsInitializing(false);
-          return;
-      }
-      try {
-        const initialData = await initDatabase();
-        setData(initialData);
-        setConfigMissing(false);
-        setErrorMessage(null);
-      } catch (error) {
-        console.error("Erro ao inicializar Supabase:", error);
-        setErrorMessage("Falha crítica ao conectar ao banco de dados.");
-      } finally {
+    // Subscribe to auth changes
+    const { data: { subscription } } = onAuthStateChange((currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        loadData();
+      } else {
+        setData(null);
         setIsInitializing(false);
       }
+    });
+
+    return () => {
+      subscription.unsubscribe();
     };
-    setup();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setIsInitializing(false);
+    }
+  }, [data]);
 
   const addItem = async (table: string, item: any) => {
     setLoading(true);
@@ -125,20 +129,23 @@ const App: React.FC = () => {
     setCurrentView('events');
   };
 
+  if (!user && !isInitializing) {
+    return <LoginView />;
+  }
+
   if (isInitializing) {
     return (
       <div className="h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 p-8">
         <div className="relative mb-8 text-center">
-          <div className="absolute inset-0 bg-blue-600/10 blur-3xl rounded-full"></div>
-          <Loader2 size={48} className="text-blue-500 animate-spin mx-auto mb-4" />
+          <div className="absolute inset-0 bg-red-600/10 blur-3xl rounded-full"></div>
+          <Loader2 size={48} className="text-red-500 animate-spin mx-auto mb-4" />
           <h1 className="text-xl font-bold mb-2">RBC Motorsport</h1>
-          <p className="text-slate-500 text-sm">Carregando informações...</p>
+          <p className="text-slate-500 text-sm">Validando acesso...</p>
         </div>
       </div>
     );
   }
 
-  // Se houver um erro crítico e não tivermos dados, mostramos tela de erro em vez de dashboard vazio
   if (errorMessage && !data) {
     return (
       <div className="h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 p-8">
@@ -146,7 +153,7 @@ const App: React.FC = () => {
             <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-2">Erro de Carregamento</h2>
             <p className="text-slate-400 mb-6">{errorMessage}</p>
-            <button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-xl font-bold flex items-center justify-center gap-2 mx-auto">
+            <button onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-xl font-bold flex items-center justify-center gap-2 mx-auto transition-all">
                 <RefreshCw size={18} /> Tentar Novamente
             </button>
         </div>
@@ -222,7 +229,7 @@ const App: React.FC = () => {
       {loading && (
         <div className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center">
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
-                <Loader2 size={40} className="text-blue-500 animate-spin" />
+                <Loader2 size={40} className="text-red-500 animate-spin" />
                 <span className="text-sm font-bold text-slate-300 uppercase tracking-widest">Sincronizando...</span>
             </div>
         </div>
@@ -274,7 +281,7 @@ const App: React.FC = () => {
                        <h2 className="text-2xl font-bold mb-2">Conexão Necessária</h2>
                        <p className="text-slate-400 max-w-md">As credenciais do Supabase não foram encontradas. Por favor, configure a URL e a Chave Anon para continuar.</p>
                    </div>
-                   <button onClick={() => setCurrentView('settings')} className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-xl font-bold transition-all">Ir para Configurações</button>
+                   <button onClick={() => setCurrentView('settings')} className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-xl font-bold transition-all shadow-lg shadow-red-900/20">Ir para Configurações</button>
                </div>
            ) : renderContent()}
         </div>

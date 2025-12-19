@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle, Settings } from 'lucide-react';
+import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle, Settings, LogOut } from 'lucide-react';
 import { ViewState } from '../types';
+import { signOut } from '../services/databaseService';
 
 interface SidebarProps {
   currentView: ViewState;
@@ -16,6 +17,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { id: 'members', label: 'Integrantes', icon: Users },
     { id: 'cities', label: 'Cidades', icon: MapPin },
   ];
+
+  const handleSignOut = async () => {
+    if (confirm("Deseja realmente sair do sistema?")) {
+        try {
+            await signOut();
+            // Força o recarregamento para limpar estados da memória e garantir redirecionamento
+            window.location.reload();
+        } catch (e) {
+            console.error("Erro ao sair:", e);
+            // Mesmo com erro no servidor, forçamos o reload para tentar limpar o estado local
+            window.location.reload();
+        }
+    }
+  };
 
   const renderLink = (item: { id: ViewState; label: string; icon: React.ElementType }) => {
     const Icon = item.icon;
@@ -42,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         <div className="w-8 h-8 bg-red-600 rounded-md flex items-center justify-center transform -skew-x-12">
             <span className="font-bold text-white skew-x-12">R</span>
         </div>
-        <h1 className="text-xl font-bold tracking-tight">RBC Motorsport</h1>
+        <h1 className="text-xl font-bold tracking-tight uppercase">RBC Motorsport</h1>
       </div>
       
       <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
@@ -56,25 +71,33 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         </div>
         <button
           onClick={() => onChangeView('settings')}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 mb-1 ${
             currentView === 'settings' 
               ? 'bg-slate-700 text-white' 
               : 'text-slate-400 hover:bg-slate-800 hover:text-white'
           }`}
         >
           <Settings size={20} />
-          <span className="font-medium text-sm">Configurações / Dados</span>
+          <span className="font-medium text-sm">Configurações</span>
+        </button>
+
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 text-slate-400 hover:bg-red-900/20 hover:text-red-400"
+        >
+          <LogOut size={20} />
+          <span className="font-medium text-sm">Sair do Sistema</span>
         </button>
       </nav>
 
       <div className="p-4 border-t border-slate-800">
         <div className="flex items-center space-x-3 p-3 bg-slate-800 rounded-lg border border-slate-700">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold">
-            TM
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-600 to-orange-500 flex items-center justify-center text-[10px] font-black">
+            RBC
           </div>
-          <div>
-            <p className="text-sm font-medium text-white">Team Manager</p>
-            <p className="text-xs text-slate-400">Admin</p>
+          <div className="overflow-hidden">
+            <p className="text-sm font-bold text-white truncate">Gerenciador</p>
+            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Acesso Autorizado</p>
           </div>
         </div>
       </div>
