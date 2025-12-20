@@ -98,6 +98,7 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
         });
 
         // 4. Create Event
+        // Fixed: Added missing vehicleIds property which is required by Event interface
         newEvents.push({
             id: crypto.randomUUID(),
             championshipId: champId!,
@@ -105,6 +106,7 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
             date: item.date,
             stage: item.stageName,
             memberIds: eventMemberIds,
+            vehicleIds: [],
             confirmed: true // Default to true for imported events
         });
     });

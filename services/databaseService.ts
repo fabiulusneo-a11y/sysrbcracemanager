@@ -111,6 +111,7 @@ export const fetchAllData = async (): Promise<AppData> => {
       date: e.date,
       stage: e.stage,
       memberIds: e.member_ids || [],
+      vehicleIds: e.vehicle_ids || [],
       confirmed: e.confirmed
     })),
     vehicles: (vehicles || []).map(v => ({ 
@@ -144,9 +145,11 @@ const formatPayload = (table: string, data: any) => {
     if (data.championshipId) formattedData.championship_id = data.championshipId;
     if (data.cityId) formattedData.city_id = data.cityId;
     if (data.memberIds) formattedData.member_ids = data.memberIds;
+    if (data.vehicleIds) formattedData.vehicle_ids = data.vehicleIds;
     delete formattedData.championshipId;
     delete formattedData.cityId;
     delete formattedData.memberIds;
+    delete formattedData.vehicleIds;
   }
   return formattedData;
 };
@@ -160,8 +163,9 @@ export const sqlInsert = async (table: string, data: any) => {
 
 export const sqlUpdate = async (table: string, id: string | number, data: any) => {
   const client = getSupabase();
-  const payload = formatPayload(table, data);
-  const { error } = await client.from(table).update(payload).eq('id', id);
+  // Fixed: Removed incorrect line that called formatPayload with extra arguments
+  const formattedPayload = formatPayload(table, data);
+  const { error } = await client.from(table).update(formattedPayload).eq('id', id);
   if (error) throw error;
 };
 

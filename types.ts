@@ -39,6 +39,7 @@ export interface Event {
   date: string; // ISO format YYYY-MM-DD
   stage: string; // e.g., "Etapa 1", "Final"
   memberIds: string[];
+  vehicleIds: (string | number)[];
   confirmed: boolean; // Status for Confirmado/Indefinido
 }
 

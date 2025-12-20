@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import { Event, AppData, Member } from '../../types';
-import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Event, AppData, Member, Vehicle } from '../../types';
+import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, Info, CheckCircle2 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
@@ -42,6 +42,7 @@ const EventsView: React.FC<EventsViewProps> = ({
     date: '',
     stage: '',
     memberIds: [],
+    vehicleIds: [],
     confirmed: true
   });
 
@@ -56,8 +57,15 @@ const EventsView: React.FC<EventsViewProps> = ({
 
   const getMemberNames = (ids: string[]) => {
     return ids.map(id => {
-        const m = data.members.find(member => member.id === id);
+        const m = data.members.find(member => String(member.id) === String(id));
         return m ? m.name : 'N/A';
+    }).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  };
+
+  const getVehiclePlates = (ids: (string | number)[]) => {
+    return ids.map(id => {
+        const v = data.vehicles.find(vehicle => String(vehicle.id) === String(id));
+        return v ? v.plate : 'N/A';
     }).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   };
 
@@ -65,18 +73,31 @@ const EventsView: React.FC<EventsViewProps> = ({
     a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
   );
 
-  const sortedMembersList = [...data.members]
-    .filter(m => m.active !== false)
-    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+  const activeMembers = useMemo(() => 
+    [...data.members]
+      .filter(m => m.active !== false)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })), 
+    [data.members]
+  );
 
-  const filteredEvents = data.events
-    .filter(event => {
-        const matchesChamp = filterChampionship ? event.championshipId === filterChampionship : true;
-        const matchesStart = startDate ? event.date >= startDate : true;
-        const matchesEnd = endDate ? event.date <= endDate : true;
-        return matchesChamp && matchesStart && matchesEnd;
-    })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const activeVehicles = useMemo(() => 
+    [...data.vehicles]
+      .filter(v => v.status !== false)
+      .sort((a, b) => String(a.plate).localeCompare(String(b.plate), 'pt-BR', { sensitivity: 'base' })), 
+    [data.vehicles]
+  );
+
+  const filteredEvents = useMemo(() => 
+    data.events
+      .filter(event => {
+          const matchesChamp = filterChampionship ? event.championshipId === filterChampionship : true;
+          const matchesStart = startDate ? event.date >= startDate : true;
+          const matchesEnd = endDate ? event.date <= endDate : true;
+          return matchesChamp && matchesStart && matchesEnd;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [data.events, filterChampionship, startDate, endDate]
+  );
 
   useEffect(() => {
     if (initialEditingId) {
@@ -106,7 +127,8 @@ const EventsView: React.FC<EventsViewProps> = ({
         cityId: event.cityId,
         date: event.date,
         stage: event.stage,
-        memberIds: event.memberIds,
+        memberIds: event.memberIds || [],
+        vehicleIds: event.vehicleIds || [],
         confirmed: event.confirmed !== false
       });
     } else {
@@ -117,6 +139,7 @@ const EventsView: React.FC<EventsViewProps> = ({
         date: new Date().toISOString().split('T')[0],
         stage: 'Etapa 1',
         memberIds: [],
+        vehicleIds: [],
         confirmed: true
       });
     }
@@ -132,269 +155,205 @@ const EventsView: React.FC<EventsViewProps> = ({
     return data.events.find(e => 
       e.date === formData.date && 
       e.id !== editingId && 
-      e.memberIds.includes(memberId)
+      e.memberIds.some(mId => String(mId) === String(memberId))
+    );
+  };
+
+  const getConflictingVehicleEvent = (vehicleId: string | number) => {
+    if (!formData.date) return null;
+    return data.events.find(e => 
+      e.date === formData.date && 
+      e.id !== editingId && 
+      e.vehicleIds.some(vId => String(vId) === String(vehicleId))
     );
   };
 
   const toggleMember = (memberId: string) => {
-    if (!formData.memberIds.includes(memberId)) {
+    const isCurrentlySelected = formData.memberIds.some(mId => String(mId) === String(memberId));
+    if (!isCurrentlySelected) {
         const conflict = getConflictingEvent(memberId);
         if (conflict) return; 
     }
     setFormData(prev => {
-        const ids = prev.memberIds.includes(memberId)
-            ? prev.memberIds.filter(id => id !== memberId)
+        const isAlreadyIn = prev.memberIds.some(mId => String(mId) === String(memberId));
+        const ids = isAlreadyIn
+            ? prev.memberIds.filter(mId => String(mId) !== String(memberId))
             : [...prev.memberIds, memberId];
         return { ...prev, memberIds: ids };
     });
   };
 
+  const toggleVehicle = (vehicleId: string | number) => {
+    const isCurrentlySelected = formData.vehicleIds.some(vId => String(vId) === String(vehicleId));
+    if (!isCurrentlySelected) {
+        const conflict = getConflictingVehicleEvent(vehicleId);
+        if (conflict) return; 
+    }
+    setFormData(prev => {
+        const isAlreadyIn = prev.vehicleIds.some(vId => String(vId) === String(vehicleId));
+        const ids = isAlreadyIn
+            ? prev.vehicleIds.filter(vId => String(vId) !== String(vehicleId))
+            : [...prev.vehicleIds, vehicleId];
+        return { ...prev, vehicleIds: ids };
+    });
+  };
+
   const handlePrintAnalytical = () => {
-    const reportWindow = window.open('', '_blank');
-    if (!reportWindow) {
-      alert("Habilite pop-ups para visualizar o relatório.");
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert("Habilite pop-ups para imprimir.");
       return;
     }
 
-    const memberHeaders = sortedMembersList.map(m => `
-        <th class="rotate-header">
-            <div><span>${m.name}</span></div>
-        </th>
-    `).join('');
-
-    const tableRows = filteredEvents.map((event, idx) => {
-        const city = getCityObj(event.cityId);
-        const isConfirmed = event.confirmed !== false;
-        const memberCells = sortedMembersList.map(member => {
-            const isConvocado = event.memberIds.includes(member.id);
-            return `
-                <td class="cell-data ${isConvocado ? 'is-selected' : 'is-empty'}">
-                    ${isConvocado ? '1' : '0'}
-                </td>
-            `;
-        }).join('');
-
-        return `
-            <tr>
-                <td style="text-align: center; border: 1px solid #94a3b8;">${formatToBRDate(event.date)}</td>
-                <td style="font-weight: 800; border: 1px solid #94a3b8;">${getChampName(event.championshipId)}</td>
-                <td style="text-align: center; border: 1px solid #94a3b8;">${event.stage.replace(/\D/g, '') || (idx+1)}</td>
-                <td style="border: 1px solid #94a3b8;">${city?.name || 'N/A'}</td>
-                <td style="text-align: center; border: 1px solid #94a3b8;">${city?.state || '??'}</td>
-                <td style="text-align: center; border: 1px solid #94a3b8;">
-                    <div class="status-badge ${isConfirmed ? 'status-confirmed' : 'status-pending'}">
-                        ${isConfirmed ? 'CONFIRM' : 'INDEF'}
-                    </div>
-                </td>
-                ${memberCells}
-            </tr>
-        `;
-    }).join('');
-
-    const totalsRow = sortedMembersList.map(member => {
-        const total = getMemberTotal(member.id);
-        return `<td style="text-align: center; font-weight: 900; background: #fee2e2; color: #b91c1c; border: 1px solid #ef4444; font-size: 9px;">${total}</td>`;
-    }).join('');
-
-    reportWindow.document.write(`
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8">
-        <title>Matriz RBC - ${new Date().toLocaleDateString('pt-BR')}</title>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
-        <style>
-          @page { size: A4 landscape; margin: 0.8cm 0.8cm 1.5cm 0.8cm; }
-          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #0D0D0D; font-size: 8px; line-height: 1.1; counter-reset: page; }
-          
-          table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #94a3b8; }
-          thead { display: table-header-group; }
-          
-          .report-header { border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
-          .report-header h1 { margin: 0; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; color: #000; }
-          .record-count { font-size: 10px; font-weight: 800; color: #ef4444; text-transform: uppercase; margin-top: 2px; }
-          
-          th { padding: 4px; background: #d9d9d9; color: #0D0D0D; font-size: 7px; font-weight: 900; text-transform: uppercase; border: 1px solid #94a3b8; }
-          td { padding: 3px 4px; vertical-align: middle; word-wrap: break-word; }
-
-          /* Zebra Striping */
-          tbody tr:nth-child(even) { background-color: #f1f5f9; }
-          tbody tr:nth-child(odd) { background-color: #ffffff; }
-
-          .rotate-header { height: 95px; white-space: nowrap; vertical-align: bottom; padding: 0 !important; }
-          .rotate-header > div { transform: rotate(180deg); writing-mode: vertical-rl; width: 25px; margin: 0 auto; }
-          .rotate-header span { font-size: 7px; font-weight: 900; letter-spacing: 0.5px; }
-
-          .cell-data { text-align: center; font-weight: 800; font-size: 9px; border: 1px solid #94a3b8; }
-          .is-selected { color: #b91c1c; background-color: #fef2f2 !important; }
-          .is-empty { color: #cbd5e1; }
-
-          .status-badge { font-size: 6px; font-weight: 900; text-transform: uppercase; padding: 1px 3px; border-radius: 2px; display: inline-block; }
-          .status-confirmed { border: 1px solid #166534; color: #166534; background: #f0fdf4; }
-          .status-pending { border: 1px solid #92400e; color: #92400e; background: #fffbeb; }
-
-          .print-toolbar {
-            position: fixed; top: 0; left: 0; right: 0; background: #111; color: #fff; padding: 6px 20px;
-            display: flex; justify-content: space-between; align-items: center; z-index: 1000;
-          }
-          .btn-print {
-            background: #ef4444; color: #fff; border: none; padding: 5px 10px; border-radius: 4px;
-            font-weight: 800; font-size: 9px; cursor: pointer; text-transform: uppercase;
-          }
-
-          /* Rodapé Fixo para Impressão */
-          #footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 30px;
-            display: none;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 7px;
-            color: #94a3b8;
-            font-weight: 700;
-            text-transform: uppercase;
-            border-top: 1px solid #cbd5e1;
-            background: white;
-            padding: 0 10px;
-          }
-
-          .page-counter::after {
-            content: "Página " counter(page) " / " counter(pages);
-          }
-
-          @media print {
-            .print-toolbar { display: none !important; }
-            body { padding: 0; }
-            thead { display: table-header-group; }
-            th { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #d9d9d9 !important; color: #0D0D0D !important; }
-            #footer { display: flex !important; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="print-toolbar">
-          <span style="font-weight: 800; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">Matriz Analítica RBC Motorsport (Paisagem)</span>
-          <button class="btn-print" onclick="window.print()">Imprimir Agora (A4)</button>
-        </div>
-        <div style="height: 35px;"></div>
-
-        <div class="report-header">
-            <div>
-                <h1>RBC Motorsport</h1>
-                <div class="record-count">Total de Registros: ${filteredEvents.length} eventos no período</div>
-                <div style="font-weight: 700; color: #64748b; text-transform: uppercase; font-size: 7px; margin-top: 1px;">Matriz Analítica de Convocação de Equipe</div>
-            </div>
-            <div style="text-align: right; font-size: 7px; color: #94a3b8;">
-                DATA DE EMISSÃO: <b>${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</b>
-            </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 60px;">Data</th>
-              <th style="width: 140px; text-align: left;">Campeonato</th>
-              <th style="width: 20px;">Et.</th>
-              <th style="width: 100px; text-align: left;">Cidade</th>
-              <th style="width: 25px;">UF</th>
-              <th style="width: 45px;">Status</th>
-              ${memberHeaders}
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-          <tfoot>
-            <tr style="border-top: 2px solid #000; background: #f1f5f9;">
-                <td colspan="6" style="text-align: right; font-weight: 900; font-size: 8px; text-transform: uppercase; border: 1px solid #94a3b8;">Soma das Convocações:</td>
-                ${totalsRow}
-            </tr>
-          </tfoot>
-        </table>
-
-        <div id="footer">
-            <span>RBC Motorsport • Gerado via RBC System</span>
-            <span>Documento Técnico • Configuração A4 Paisagem</span>
-            <span class="page-counter"></span>
-        </div>
-      </body>
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Matriz Analítica RBC - Frota e Equipe</title>
+          <style>
+            body { font-family: 'Inter', sans-serif; padding: 20px; font-size: 8px; color: #1e293b; }
+            h1 { font-size: 16px; margin-bottom: 5px; color: #000; text-transform: uppercase; border-bottom: 2px solid #ef4444; display: inline-block; padding-bottom: 2px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; }
+            th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; }
+            .event-info { text-align: left; padding-left: 5px; font-weight: bold; background: #fff; }
+            .member-col { background-color: #f1f5f9; }
+            .vehicle-col { background-color: #fef2f2; }
+            .checked { background-color: #ef4444 !important; color: #fff !important; font-weight: 900; }
+            .confirmed-label { font-size: 6px; color: #10b981; }
+            .footer { margin-top: 20px; font-size: 7px; color: #94a3b8; text-align: center; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h1>Matriz Analítica de Escala RBC</h1>
+          <p>Relatório de Logística e Disponibilidade • Equipe e Frota</p>
+          <table>
+            <thead>
+              <tr>
+                <th colspan="4" style="background: #fff; border: none;"></th>
+                <th colspan="${activeMembers.length}" style="background: #f1f5f9; border-bottom: 2px solid #334155;">Equipe Técnica</th>
+                <th colspan="${activeVehicles.length}" style="background: #fef2f2; border-bottom: 2px solid #ef4444;">Frota Operacional</th>
+              </tr>
+              <tr>
+                <th style="width: 50px;">Data</th>
+                <th style="width: 100px;">Campeonato</th>
+                <th style="width: 80px;">Etapa</th>
+                <th style="width: 80px;">Cidade</th>
+                ${activeMembers.map(m => `<th>${m.name.split(' ')[0]}</th>`).join('')}
+                ${activeVehicles.map(v => `<th>${v.plate}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredEvents.map(event => `
+                <tr>
+                  <td class="event-info">${formatToBRDate(event.date)}</td>
+                  <td class="event-info">${getChampName(event.championshipId)}</td>
+                  <td class="event-info">${event.stage}</td>
+                  <td class="event-info">${getCityObj(event.cityId)?.name}</td>
+                  ${activeMembers.map(m => {
+                    const isSelected = event.memberIds.some(id => String(id) === String(m.id));
+                    return `<td class="${isSelected ? 'checked' : ''}">${isSelected ? 'X' : ''}</td>`;
+                  }).join('')}
+                  ${activeVehicles.map(v => {
+                    const isSelected = event.vehicleIds.some(id => String(id) === String(v.id));
+                    return `<td class="${isSelected ? 'checked' : ''}">${isSelected ? 'X' : ''}</td>`;
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="footer">Gerado em ${new Date().toLocaleString('pt-BR')} • RBC Motorsport System</div>
+          <script>window.print();</script>
+        </body>
       </html>
-    `);
-    reportWindow.document.close();
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   const exportAnalyticalStyled = async () => {
     setIsExporting(true);
     try {
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Relatório Analítico');
-        const members = sortedMembersList;
-        
-        const columns = [
-            { header: 'Data', key: 'date', width: 12 },
-            { header: 'Campeonato', key: 'champ', width: 25 },
-            { header: 'Etapa', key: 'stage', width: 10 },
-            { header: 'Cidade', key: 'city', width: 20 },
-            { header: 'Estado', key: 'state', width: 8 },
-            { header: 'Status', key: 'status', width: 15 },
-            ...members.map(m => ({ header: m.name, key: m.id, width: 12 }))
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Matriz de Escala RBC');
+
+      // Header configurations
+      const headerRow1 = worksheet.addRow(['', '', '', '', 'EQUIPE TÉCNICA', ...new Array(activeMembers.length - 1).fill(''), 'FROTA OPERACIONAL']);
+      worksheet.mergeCells(1, 5, 1, 4 + activeMembers.length);
+      worksheet.mergeCells(1, 5 + activeMembers.length, 1, 4 + activeMembers.length + activeVehicles.length);
+      
+      const headerRow2 = worksheet.addRow([
+        'DATA', 
+        'CAMPEONATO', 
+        'ETAPA', 
+        'CIDADE', 
+        ...activeMembers.map(m => m.name.toUpperCase()), 
+        ...activeVehicles.map(v => v.plate.toUpperCase())
+      ]);
+
+      // Style Headers
+      [headerRow1, headerRow2].forEach((row, rowIndex) => {
+        row.eachCell((cell, colIndex) => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowIndex === 0 ? 'FF1E293B' : 'FFEF4444' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        });
+      });
+
+      // Data Rows
+      filteredEvents.forEach(event => {
+        const rowData = [
+          formatToBRDate(event.date),
+          getChampName(event.championshipId),
+          event.stage,
+          getCityObj(event.cityId)?.name || '',
+          ...activeMembers.map(m => event.memberIds.some(id => String(id) === String(m.id)) ? 'CONVOCADO' : ''),
+          ...activeVehicles.map(v => event.vehicleIds.some(id => String(id) === String(v.id)) ? 'ESCALADO' : '')
         ];
-        worksheet.columns = columns;
-
-        const headerRow = worksheet.getRow(1);
-        headerRow.eachCell((cell) => {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
-            cell.font = { color: { argb: 'FF0D0D0D' }, bold: true };
-            cell.alignment = { vertical: 'middle', horizontal: 'center' };
-            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        const row = worksheet.addRow(rowData);
+        
+        row.eachCell((cell, colIndex) => {
+          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+          cell.alignment = { horizontal: colIndex <= 4 ? 'left' : 'center', vertical: 'middle' };
+          
+          if (cell.value === 'CONVOCADO') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+            cell.font = { color: { argb: 'FF166534' }, bold: true, size: 8 };
+          } else if (cell.value === 'ESCALADO') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
+            cell.font = { color: { argb: 'FF1E40AF' }, bold: true, size: 8 };
+          }
         });
+      });
 
-        filteredEvents.forEach((event, index) => {
-            const city = getCityObj(event.cityId);
-            const rowData: any = {
-                date: formatToBRDate(event.date),
-                champ: getChampName(event.championshipId),
-                stage: event.stage,
-                city: city?.name || 'N/A',
-                state: city?.state || 'N/A',
-                status: event.confirmed !== false ? 'Confirmado' : 'Indefinido'
-            };
-            members.forEach(m => { rowData[m.id] = event.memberIds.includes(m.id) ? 1 : 0; });
+      // Adjust column widths
+      worksheet.columns.forEach((col, idx) => {
+        col.width = idx < 4 ? 20 : 12;
+      });
 
-            const row = worksheet.addRow(rowData);
-            const isStriped = index % 2 !== 0;
-
-            row.eachCell((cell, colNumber) => {
-                if (isStriped) { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; }
-                if (colNumber > 6) {
-                    if (cell.value === 1) {
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-                        cell.font = { color: { argb: 'FFB91C1C' }, bold: true };
-                    } else { cell.font = { color: { argb: 'FF94A3B8' } }; }
-                    cell.alignment = { horizontal: 'center' };
-                }
-                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-            });
-        });
-
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `matriz_rbc_${new Date().toISOString().split('T')[0]}.xlsx`;
-        anchor.click();
-        window.URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error("Export Error:", error);
-    } finally { setIsExporting(false); }
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `Matriz_RBC_${new Date().toISOString().split('T')[0]}.xlsx`;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar planilha.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const getMemberTotal = (memberId: string) => {
-    return filteredEvents.reduce((acc, event) => acc + (event.memberIds.includes(memberId) ? 1 : 0), 0);
+    return filteredEvents.reduce((acc, event) => acc + (event.memberIds.some(mId => String(mId) === String(memberId)) ? 1 : 0), 0);
+  };
+
+  const getVehicleTotal = (vehicleId: string | number) => {
+    return filteredEvents.reduce((acc, event) => acc + (event.vehicleIds.some(vId => String(vId) === String(vehicleId)) ? 1 : 0), 0);
   };
 
   return (
@@ -479,7 +438,9 @@ const EventsView: React.FC<EventsViewProps> = ({
         {filteredEvents.map((event) => {
             const isConfirmed = event.confirmed !== false;
             const city = getCityObj(event.cityId);
-            const memberNames = getMemberNames(event.memberIds);
+            const memberNames = getMemberNames(event.memberIds || []);
+            const vehiclePlates = getVehiclePlates(event.vehicleIds || []);
+            
             return (
                 <div key={event.id} className="bg-slate-900 p-5 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 group hover:border-red-500/50 transition-colors">
                     <div className="flex-shrink-0 flex md:flex-col items-center gap-2 md:w-24 md:border-r md:border-slate-800 md:pr-4">
@@ -505,24 +466,42 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 </div>
                             </div>
                         </div>
-                        <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/50">
-                            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                                <Users size={14} className="text-slate-600" />
-                                Equipe Convocada
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-800/50">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <Users size={14} className="text-slate-600" />
+                                    Equipe Técnica
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {memberNames.length > 0 ? (
+                                        memberNames.map((name, idx) => (
+                                            <span key={idx} className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-md text-[10px] font-medium">
+                                                {name}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="text-slate-600 text-[9px] italic">Sem equipe escalada</span>
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
-                                {memberNames.length > 0 ? (
-                                    memberNames.map((name, idx) => (
-                                        <span key={idx} className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-md text-[10px] font-medium">
-                                            {name}
-                                        </span>
-                                    ))
-                                ) : (
-                                    <span className="text-amber-600 text-[10px] font-bold italic flex items-center gap-1">
-                                        <AlertCircle size={10} />
-                                        Sem escala definida
-                                    </span>
-                                )}
+
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <Truck size={14} className="text-slate-600" />
+                                    Frota Escala
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {vehiclePlates.length > 0 ? (
+                                        vehiclePlates.map((plate, idx) => (
+                                            <span key={idx} className="px-2 py-0.5 bg-red-900/10 border border-red-900/20 text-red-400 rounded-md text-[10px] font-black tracking-tighter uppercase font-mono">
+                                                {plate}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="text-slate-600 text-[9px] italic">Nenhum veículo alocado</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -561,135 +540,142 @@ const EventsView: React.FC<EventsViewProps> = ({
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
               <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-[98vw] h-[92vh] flex flex-col overflow-hidden">
                   <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/80">
-                      <div>
+                      <div className="flex items-center gap-4">
                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <FileSpreadsheet className="text-blue-500" />
-                            Matriz Analítica de Convocação
+                            <FileSpreadsheet className="text-red-500" />
+                            Matriz Operacional RBC
                         </h3>
+                        <div className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                           {filteredEvents.length} Etapas em Exibição
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                           <button 
-                            type="button"
-                            onClick={handlePrintAnalytical}
-                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all border border-slate-700"
-                          >
-                              <Printer size={16} />
-                              <span>Imprimir</span>
-                          </button>
-                          <button 
-                            type="button"
+                            type="button" 
                             onClick={exportAnalyticalStyled}
                             disabled={isExporting}
-                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 disabled:opacity-50"
+                            className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 text-sm font-bold transition-all disabled:opacity-50"
                           >
-                              {isExporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-                              <span>{isExporting ? 'Processando...' : 'Exportar Excel'}</span>
+                             {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                             <span className="hidden sm:inline">Exportar Excel</span>
                           </button>
-                          <button type="button" onClick={() => setIsAnalyticalModalOpen(false)} className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-lg ml-2">
+                          <button 
+                            type="button" 
+                            onClick={handlePrintAnalytical}
+                            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg flex items-center gap-2 text-sm font-bold transition-all"
+                          >
+                             <Printer size={16} />
+                             <span className="hidden sm:inline">Imprimir</span>
+                          </button>
+                          <button type="button" onClick={() => setIsAnalyticalModalOpen(false)} className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-lg ml-2 transition-colors">
                               <X size={20} />
                           </button>
                       </div>
                   </div>
                   
-                  <div className="flex-1 overflow-auto bg-white p-0 relative">
-                      <div className="min-w-max inline-block align-top">
-                        <table className="border-collapse table-auto">
-                            <thead className="sticky top-0 z-40">
-                                <tr className="bg-[#0f172a] text-white">
-                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider sticky left-0 z-50 bg-[#0f172a] w-[85px] text-center align-middle">Data</th>
-                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider sticky left-[85px] z-50 bg-[#0f172a] w-[180px] text-left align-middle">Campeonato</th>
-                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider w-[45px] text-center align-middle">Et.</th>
-                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider w-[120px] text-left align-middle">Cidade</th>
-                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider w-[35px] text-center align-middle">UF</th>
-                                    <th className="p-2 border border-white/10 text-[10px] font-bold uppercase tracking-wider w-[80px] text-center align-middle">Status</th>
-                                    {sortedMembersList.map(member => (
-                                        <th key={member.id} className="p-2 border border-white/10 relative bg-[#0f172a] w-[40px] min-w-[40px] text-center align-middle">
-                                            <span className="[writing-mode:vertical-rl] rotate-180 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-white leading-none inline-block">
-                                                {member.name}
-                                            </span>
+                  <div className="flex-1 overflow-auto bg-slate-950 p-0 relative">
+                        <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
+                            <thead className="sticky top-0 z-20 shadow-lg">
+                                <tr className="bg-slate-900 text-[10px] font-bold text-slate-500 uppercase tracking-widest h-10">
+                                    <th className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4 w-32">Etapa / Data</th>
+                                    <th className="sticky left-32 z-30 bg-slate-900 border-r border-slate-800 p-4 w-60">Competição / Local</th>
+                                    
+                                    {activeMembers.map(m => (
+                                        <th key={m.id} className="p-2 text-center border-r border-slate-800 bg-slate-900 w-24 border-b-2 border-slate-800">
+                                            <div className="rotate-0 truncate" title={m.name}>{m.name.split(' ')[0]}</div>
+                                        </th>
+                                    ))}
+                                    {activeVehicles.map(v => (
+                                        <th key={v.id} className="p-2 text-center border-r border-slate-800 bg-red-900/10 text-red-400 w-24 border-b-2 border-red-900/30">
+                                            <div className="font-mono tracking-tighter truncate" title={v.plate}>{v.plate}</div>
                                         </th>
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody className="z-10 relative">
-                                {filteredEvents.map((event, idx) => {
-                                    const city = getCityObj(event.cityId);
-                                    const champName = getChampName(event.championshipId);
-                                    const isConfirmed = event.confirmed !== false;
-                                    const rowBgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
-                                    
+                            <tbody className="divide-y divide-slate-800">
+                                {filteredEvents.map(event => {
+                                    const d = new Date(event.date + 'T12:00:00');
                                     return (
-                                        <tr key={event.id} className={`border-b border-slate-200 transition-colors hover:bg-blue-50/50 ${rowBgClass}`}>
-                                            <td className={`p-2 border border-slate-200 font-mono text-[10px] text-slate-900 font-semibold sticky left-0 z-30 text-center ${rowBgClass}`}>
-                                                {formatToBRDate(event.date)}
+                                        <tr key={event.id} className="hover:bg-slate-900/50 group transition-colors h-14">
+                                            <td className="sticky left-0 z-10 bg-slate-950 border-r border-slate-800 p-4 text-sm font-bold">
+                                                <div className="flex flex-col">
+                                                    <span className="text-white">{event.date.split('-')[2]}/{event.date.split('-')[1]}</span>
+                                                    <span className="text-[10px] text-slate-500 font-medium uppercase">{d.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
+                                                </div>
                                             </td>
-                                            <td className={`p-2 border border-slate-200 font-bold text-slate-900 text-[10px] sticky left-[85px] z-30 ${rowBgClass}`}>
-                                                <div className="truncate max-w-[170px]">{champName}</div>
+                                            <td className="sticky left-32 z-10 bg-slate-950 border-r border-slate-800 p-4">
+                                                <div className="flex flex-col truncate">
+                                                    <span className="text-xs font-bold text-slate-300 truncate">{getChampName(event.championshipId)}</span>
+                                                    <span className="text-[10px] text-red-500 font-black uppercase truncate tracking-tight">{event.stage}</span>
+                                                    <span className="text-[9px] text-slate-500 uppercase truncate">{getCityObj(event.cityId)?.name}</span>
+                                                </div>
                                             </td>
-                                            <td className={`p-2 border border-slate-200 text-[10px] text-slate-800 text-center font-medium ${rowBgClass}`}>
-                                                {event.stage.replace(/\D/g, '') || (idx + 1).toString().padStart(2, '0')}
-                                            </td>
-                                            <td className={`p-2 border border-slate-200 text-[10px] text-slate-800 truncate max-w-[110px] font-medium ${rowBgClass}`}>
-                                                {city?.name || 'N/A'}
-                                            </td>
-                                            <td className={`p-2 border border-slate-200 text-[10px] text-slate-800 text-center font-medium ${rowBgClass}`}>
-                                                {city?.state || '??'}
-                                            </td>
-                                            <td className={`p-2 border border-slate-200 text-center ${rowBgClass}`}>
-                                                <span className={`text-[8px] font-bold px-1 py-0.5 rounded border inline-block ${
-                                                    isConfirmed ? 'bg-green-100 text-green-800 border-green-200' : 'bg-amber-100 text-amber-800 border-amber-200'
-                                                }`}>
-                                                    {isConfirmed ? 'CONFIRM' : 'INDEF'}
-                                                </span>
-                                            </td>
-                                            {sortedMembersList.map(member => {
-                                                const isConvocado = event.memberIds.includes(member.id);
+
+                                            {/* Intersection Matrix: Members */}
+                                            {activeMembers.map(m => {
+                                                const isAssigned = event.memberIds.some(id => String(id) === String(m.id));
                                                 return (
-                                                    <td key={member.id} className={`p-1 border border-slate-200 text-center text-[11px] font-bold ${isConvocado ? 'bg-red-50 text-red-600' : 'text-slate-300'} ${rowBgClass}`}>
-                                                        {isConvocado ? '1' : '0'}
+                                                    <td key={m.id} className={`p-0 border-r border-slate-800 text-center ${isAssigned ? 'bg-slate-900/40' : ''}`}>
+                                                        {isAssigned && (
+                                                            <div className="flex items-center justify-center h-full">
+                                                                <CheckCircle2 size={20} className="text-green-500 shadow-sm" />
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                );
+                                            })}
+
+                                            {/* Intersection Matrix: Vehicles */}
+                                            {activeVehicles.map(v => {
+                                                const isAssigned = event.vehicleIds.some(id => String(id) === String(v.id));
+                                                return (
+                                                    <td key={v.id} className={`p-0 border-r border-slate-800 text-center ${isAssigned ? 'bg-red-950/20' : ''}`}>
+                                                        {isAssigned && (
+                                                            <div className="flex items-center justify-center h-full">
+                                                                <Truck size={20} className="text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]" />
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 );
                                             })}
                                         </tr>
                                     );
                                 })}
-                            </tbody>
-                            <tfoot className="sticky bottom-0 z-40 shadow-[0_-2px_4px_rgba(0,0,0,0.1)]">
-                                <tr className="bg-slate-200 font-bold border-t-2 border-slate-400">
-                                    <td colSpan={6} className="p-2 text-right text-[10px] uppercase tracking-wider text-black sticky left-0 bg-slate-200 z-50 border border-slate-300">
-                                        Total de Convocações:
+
+                                {/* Totals Footer Row */}
+                                <tr className="bg-slate-900/80 font-bold border-t-2 border-slate-800 h-12">
+                                    <td colSpan={2} className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4 text-[10px] uppercase text-slate-400 text-right">
+                                        Total de Escalas no Período
                                     </td>
-                                    {sortedMembersList.map(member => (
-                                        <td key={member.id} className="p-1 text-center border border-slate-300 text-[11px] font-bold bg-red-100 text-red-700">
-                                            {getMemberTotal(member.id)}
+                                    {activeMembers.map(m => (
+                                        <td key={m.id} className="text-center border-r border-slate-800 text-white text-xs">
+                                            {getMemberTotal(m.id)}
+                                        </td>
+                                    ))}
+                                    {activeVehicles.map(v => (
+                                        <td key={v.id} className="text-center border-r border-slate-800 text-red-500 text-xs">
+                                            {getVehicleTotal(v.id)}
                                         </td>
                                     ))}
                                 </tr>
-                            </tfoot>
+                            </tbody>
                         </table>
-                        {filteredEvents.length === 0 && (
-                            <div className="p-20 text-center flex flex-col items-center justify-center gap-4 bg-white w-full">
-                                <AlertCircle size={48} className="text-slate-300" />
-                                <p className="text-slate-500 font-bold text-lg">Nenhum evento encontrado nos dados.</p>
-                                <p className="text-slate-400 text-sm">Verifique os filtros de data ou se há eventos cadastrados.</p>
-                            </div>
-                        )}
-                      </div>
                   </div>
-                  
-                  <div className="p-2 bg-slate-50 border-t border-slate-300 flex items-center justify-between text-[10px] text-slate-700">
-                      <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1">
-                              <span className="font-bold text-red-600 text-xs">1</span>
-                              <span className="uppercase tracking-tighter font-medium">Escalado</span>
+
+                  <div className="p-3 bg-slate-900 border-t border-slate-800 flex justify-between items-center px-6">
+                      <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-2">
+                              <CheckCircle2 size={14} className="text-green-500" />
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Convocado</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                              <span className="font-bold text-slate-300 text-xs">0</span>
-                              <span className="uppercase tracking-tighter font-medium">Livre</span>
+                          <div className="flex items-center gap-2">
+                              <Truck size={14} className="text-red-500" />
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Veículo Escalado</span>
                           </div>
                       </div>
-                      <p className="font-bold uppercase tracking-tight">
-                          PREVIEW OPERACIONAL • {filteredEvents.length} EVENTOS • {sortedMembersList.length} INTEGRANTES
+                      <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
+                          RBC Motorsport Logística • Gerado em {new Date().toLocaleDateString('pt-BR')}
                       </p>
                   </div>
               </div>
@@ -699,14 +685,14 @@ const EventsView: React.FC<EventsViewProps> = ({
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
           <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-6 text-white">{editingId ? 'Editar Evento' : 'Novo Evento'}</h3>
+            <h3 className="text-xl font-bold mb-6 text-white border-l-4 border-red-600 pl-4 uppercase italic tracking-tighter">{editingId ? 'Editar Evento RBC' : 'Novo Evento RBC'}</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Campeonato</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Campeonato</label>
                     <select
                         required
-                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-3 text-white focus:ring-2 focus:ring-red-500 outline-none font-bold"
                         value={formData.championshipId}
                         onChange={e => setFormData({ ...formData, championshipId: e.target.value })}
                     >
@@ -715,11 +701,11 @@ const EventsView: React.FC<EventsViewProps> = ({
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Etapa</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Etapa / Nome da Prova</label>
                     <input
                         type="text"
                         required
-                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-3 text-white focus:ring-2 focus:ring-red-500 outline-none font-bold"
                         value={formData.stage}
                         onChange={e => setFormData({ ...formData, stage: e.target.value })}
                     />
@@ -728,20 +714,20 @@ const EventsView: React.FC<EventsViewProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Data</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Data da Etapa</label>
                     <input
                         type="date"
                         required
-                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]"
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-3 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark] font-bold"
                         value={formData.date}
-                        onChange={e => setFormData({ ...formData, date: e.target.value, memberIds: [] })}
+                        onChange={e => setFormData({ ...formData, date: e.target.value, memberIds: [], vehicleIds: [] })}
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Cidade</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Cidade Sede</label>
                     <select
                         required
-                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-3 text-white focus:ring-2 focus:ring-red-500 outline-none font-bold"
                         value={formData.cityId}
                         onChange={e => setFormData({ ...formData, cityId: e.target.value })}
                     >
@@ -751,11 +737,17 @@ const EventsView: React.FC<EventsViewProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">Integrantes Convocados</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 border border-slate-700 rounded-lg p-3 bg-slate-950 max-h-64 overflow-y-auto">
-                    {sortedMembersList.map(member => {
-                        const isSelected = formData.memberIds.includes(member.id);
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <Users size={16} className="text-red-500" />
+                        Convocação da Equipe
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase">{formData.memberIds.length} selecionados</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border border-slate-800 rounded-xl p-4 bg-slate-950 max-h-48 overflow-y-auto shadow-inner">
+                    {activeMembers.map(member => {
+                        const isSelected = formData.memberIds.some(mId => String(mId) === String(member.id));
                         const conflict = getConflictingEvent(member.id);
                         const isUnavailable = !!conflict;
                         
@@ -763,15 +755,15 @@ const EventsView: React.FC<EventsViewProps> = ({
                             <div 
                                 key={member.id} 
                                 onClick={() => !isUnavailable && toggleMember(member.id)}
-                                className={`p-2 rounded border flex flex-col gap-1 transition-all select-none
-                                    ${isSelected ? 'bg-red-900/30 border-red-800 text-red-300' : 'bg-slate-900 border-slate-800 text-slate-400'}
-                                    ${isUnavailable ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer hover:border-slate-600'}
+                                className={`p-2 rounded-lg border flex flex-col gap-1 transition-all select-none
+                                    ${isSelected ? 'bg-red-900/20 border-red-600 text-red-400 font-bold' : 'bg-slate-900 border-slate-800 text-slate-400'}
+                                    ${isUnavailable ? 'opacity-30 grayscale cursor-not-allowed border-dashed' : 'cursor-pointer hover:border-slate-600'}
                                 `}
                             >
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium truncate">{member.name}</span>
-                                    {isSelected && <Check size={14} />}
-                                    {isUnavailable && <AlertCircle size={14} className="text-red-500" />}
+                                <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                    <span className="text-[10px] truncate">{member.name}</span>
+                                    {isSelected && <Check size={12} className="shrink-0" />}
+                                    {isUnavailable && <AlertCircle size={10} className="text-red-600 shrink-0" />}
                                 </div>
                             </div>
                         );
@@ -779,9 +771,44 @@ const EventsView: React.FC<EventsViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button type="button" onClick={closeModal} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors">Salvar Evento</button>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <Truck size={16} className="text-blue-500" />
+                        Escala da Frota
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase">{formData.vehicleIds.length} veículos</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border border-slate-800 rounded-xl p-4 bg-slate-950 max-h-48 overflow-y-auto shadow-inner">
+                    {activeVehicles.map(vehicle => {
+                        const isSelected = formData.vehicleIds.some(vId => String(vId) === String(vehicle.id));
+                        const conflict = getConflictingVehicleEvent(vehicle.id);
+                        const isUnavailable = !!conflict;
+                        
+                        return (
+                            <div 
+                                key={vehicle.id} 
+                                onClick={() => !isUnavailable && toggleVehicle(vehicle.id)}
+                                className={`p-2 rounded-lg border flex flex-col gap-1 transition-all select-none
+                                    ${isSelected ? 'bg-blue-900/20 border-blue-600 text-blue-400 font-bold' : 'bg-slate-900 border-slate-800 text-slate-400'}
+                                    ${isUnavailable ? 'opacity-30 grayscale cursor-not-allowed border-dashed' : 'cursor-pointer hover:border-slate-600'}
+                                `}
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[10px] font-mono tracking-wider truncate">{vehicle.plate}</span>
+                                    {isSelected && <Check size={12} className="shrink-0" />}
+                                    {isUnavailable && <AlertCircle size={10} className="text-red-600 shrink-0" />}
+                                </div>
+                                <span className="text-[8px] uppercase tracking-tighter truncate opacity-60">{vehicle.brand} {vehicle.model}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-6 border-t border-slate-800">
+                <button type="button" onClick={closeModal} className="px-5 py-2.5 text-slate-400 hover:bg-slate-800 rounded-xl transition-colors font-bold uppercase text-xs">Descartar</button>
+                <button type="submit" className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-black transition-all shadow-lg shadow-red-900/20 uppercase text-xs tracking-widest">Salvar Escala Operacional</button>
               </div>
             </form>
           </div>
