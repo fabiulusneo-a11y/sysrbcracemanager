@@ -69,10 +69,6 @@ const EventsView: React.FC<EventsViewProps> = ({
     }).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   };
 
-  const sortedCities = [...data.cities].sort((a, b) => 
-    a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
-  );
-
   const activeMembers = useMemo(() => 
     [...data.members]
       .filter(m => m.active !== false)
@@ -158,61 +154,117 @@ const EventsView: React.FC<EventsViewProps> = ({
       return;
     }
 
+    // Calcula o agrupamento de datas para o rowspan
+    const dateCounts: Record<string, number> = {};
+    filteredEvents.forEach(e => {
+      dateCounts[e.date] = (dateCounts[e.date] || 0) + 1;
+    });
+
+    const renderedDates = new Set<string>();
+
     const htmlContent = `
       <html>
         <head>
           <title>Matriz Analítica RBC - Frota e Equipe</title>
           <style>
-            body { font-family: 'Inter', sans-serif; padding: 20px; font-size: 8px; color: #1e293b; }
+            body { font-family: 'Inter', sans-serif; padding: 20px; font-size: 8px; color: #1e293b; margin: 0; }
+            .toolbar { 
+              position: fixed; top: 0; left: 0; right: 0; 
+              background: #1e293b; color: white; padding: 10px 20px; 
+              display: flex; justify-content: flex-end; gap: 10px; 
+              z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .toolbar button { 
+              padding: 6px 15px; border: none; border-radius: 4px; 
+              font-weight: 800; font-size: 10px; cursor: pointer; text-transform: uppercase;
+            }
+            .btn-print { background: #ef4444; color: white; }
+            .btn-close { background: #64748b; color: white; }
+            .content-wrapper { padding-top: 50px; }
             h1 { font-size: 16px; margin-bottom: 5px; color: #000; text-transform: uppercase; border-bottom: 2px solid #ef4444; display: inline-block; padding-bottom: 2px; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
             th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; vertical-align: middle; }
             th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; line-height: 1; }
+            
+            /* Célula de Data com Destaque (Referência 20251220-1547) */
+            .date-cell-merged { 
+              border: 2px solid #64748b !important; 
+              font-weight: 900 !important; 
+              background-color: #f1f5f9 !important; 
+              color: #0f172a !important; 
+              font-size: 8px !important;
+            }
+            
             .event-info { text-align: left; padding-left: 5px; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; background: #fff; line-height: 1.2; }
             .checked { background-color: #ef4444 !important; color: #fff !important; font-weight: 900; }
             .footer { margin-top: 20px; font-size: 7px; color: #94a3b8; text-align: center; font-weight: bold; }
+            
+            /* Linha de separação para dados que possuem a mesma data */
+            tr.date-group-separator td { 
+              border-bottom: 2.5px solid #ef4444 !important; 
+            }
+
+            @media print {
+              .toolbar { display: none !important; }
+              .content-wrapper { padding-top: 0 !important; }
+              body { padding: 0; }
+            }
           </style>
         </head>
         <body>
-          <h1>Matriz Analítica de Escala RBC</h1>
-          <p>Relatório de Logística e Disponibilidade • Equipe e Frota</p>
-          <table>
-            <thead>
-              <tr>
-                <th colspan="4" style="background: #fff; border: none;"></th>
-                <th colspan="${activeMembers.length}" style="background: #f1f5f9; border-bottom: 2px solid #334155;">Equipe Técnica</th>
-                <th colspan="${activeVehicles.length}" style="background: #fef2f2; border-bottom: 2px solid #ef4444;">Frota Operacional</th>
-              </tr>
-              <tr>
-                <th style="width: 50px;">Data</th>
-                <th style="width: 100px;">Campeonato</th>
-                <th style="width: 80px;">Etapa</th>
-                <th style="width: 80px;">Cidade</th>
-                ${activeMembers.map(m => `<th>${m.name.split(' ')[0]}</th>`).join('')}
-                ${activeVehicles.map(v => `<th>${v.plate}</th>`).join('')}
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredEvents.map(event => `
+          <div class="toolbar">
+            <button class="btn-print" onclick="window.print()">Imprimir</button>
+            <button class="btn-close" onclick="window.close()">Fechar</button>
+          </div>
+          <div class="content-wrapper">
+            <h1>Matriz Analítica de Escala RBC</h1>
+            <p>Relatório de Logística e Disponibilidade • Equipe e Frota</p>
+            <table>
+              <thead>
                 <tr>
-                  <td class="event-info">${formatToBRDate(event.date)}</td>
-                  <td class="event-info">${getChampName(event.championshipId)}</td>
-                  <td class="event-info">${event.stage}</td>
-                  <td class="event-info">${getCityObj(event.cityId)?.name}</td>
-                  ${activeMembers.map(m => {
-                    const isSelected = event.memberIds.some(id => String(id) === String(m.id));
-                    return `<td class="${isSelected ? 'checked' : ''}">${isSelected ? 'X' : ''}</td>`;
-                  }).join('')}
-                  ${activeVehicles.map(v => {
-                    const isSelected = event.vehicleIds.some(id => String(id) === String(v.id));
-                    return `<td class="${isSelected ? 'checked' : ''}">${isSelected ? 'X' : ''}</td>`;
-                  }).join('')}
+                  <th colspan="4" style="background: #fff; border: none;"></th>
+                  <th colspan="${activeMembers.length}" style="background: #f1f5f9; border-bottom: 2px solid #334155;">Equipe Técnica</th>
+                  <th colspan="${activeVehicles.length}" style="background: #fef2f2; border-bottom: 2px solid #ef4444;">Frota Operacional</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div class="footer">Gerado em ${new Date().toLocaleString('pt-BR')} • RBC Motorsport System</div>
-          <script>window.print();</script>
+                <tr>
+                  <th style="width: 50px;">Data</th>
+                  <th style="width: 100px;">Campeonato</th>
+                  <th style="width: 80px;">Etapa</th>
+                  <th style="width: 80px;">Cidade</th>
+                  ${activeMembers.map(m => `<th>${m.name.split(' ')[0]}</th>`).join('')}
+                  ${activeVehicles.map(v => `<th>${v.plate}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredEvents.map((event, index) => {
+                  const isFirstOfDate = !renderedDates.has(event.date);
+                  const rowspan = isFirstOfDate ? dateCounts[event.date] : 0;
+                  if (isFirstOfDate) renderedDates.add(event.date);
+
+                  const isLastOfDateGroup = index === filteredEvents.length - 1 || filteredEvents[index + 1].date !== event.date;
+                  const rowClass = isLastOfDateGroup ? 'date-group-separator' : '';
+                  
+                  return `
+                    <tr class="${rowClass}">
+                      ${isFirstOfDate ? `<td rowspan="${rowspan}" class="date-cell-merged" style="text-align: center;">${formatToBRDate(event.date)}</td>` : ''}
+                      <td class="event-info">${getChampName(event.championshipId)}</td>
+                      <td class="event-info">${event.stage}</td>
+                      <td class="event-info">${getCityObj(event.cityId)?.name || 'N/A'}</td>
+                      ${activeMembers.map(m => {
+                        const isSelected = event.memberIds.some(id => String(id) === String(m.id));
+                        return `<td class="${isSelected ? 'checked' : ''}">${isSelected ? 'X' : ''}</td>`;
+                      }).join('')}
+                      ${activeVehicles.map(v => {
+                        const isSelected = event.vehicleIds.some(id => String(id) === String(v.id));
+                        return `<td class="${isSelected ? 'checked' : ''}">${isSelected ? 'X' : ''}</td>`;
+                      }).join('')}
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+            <div class="footer">Gerado em ${new Date().toLocaleString('pt-BR')} • RBC Motorsport System</div>
+          </div>
         </body>
       </html>
     `;
@@ -654,7 +706,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                 </div>
                 <div className="col-span-1 md:col-span-2">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Status</label>
-                    <button type="button" onClick={() => setFormData({...formData, confirmed: !formData.confirmed})} className={`w-full p-3 rounded-xl border font-bold uppercase text-xs ${formData.confirmed ? 'bg-green-900/20 border-green-800 text-green-400' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
+                    <button type="button" onClick={() => setFormData({...formData, confirmed: !formData.confirmed})} className={`w-full p-3 rounded-xl border font-bold uppercase text-xs ${formData.confirmed ? 'bg-green-900/20 text-green-400 border-green-800 text-green-400' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
                         {formData.confirmed ? 'Confirmado' : 'Indefinido'}
                     </button>
                 </div>
