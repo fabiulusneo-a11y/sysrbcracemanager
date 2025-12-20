@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle, Settings, LogOut, Truck } from 'lucide-react';
 import { ViewState } from '../types';
 import { signOut } from '../services/databaseService';
 
@@ -15,6 +15,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { id: 'events', label: 'Calendário de Eventos', icon: Calendar },
     { id: 'championships', label: 'Campeonatos', icon: Trophy },
     { id: 'members', label: 'Integrantes', icon: Users },
+    { id: 'vehicles', label: 'Veículos', icon: Truck },
     { id: 'cities', label: 'Cidades', icon: MapPin },
   ];
 

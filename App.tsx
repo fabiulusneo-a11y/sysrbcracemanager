@@ -6,9 +6,10 @@ import MembersView from './components/views/MembersView';
 import CitiesView from './components/views/CitiesView';
 import ChampionshipsView from './components/views/ChampionshipsView';
 import EventsView from './components/views/EventsView';
+import VehiclesView from './components/views/VehiclesView';
 import SettingsView from './components/views/SettingsView';
 import LoginView from './components/views/LoginView';
-import { ViewState, AppData, Event, Championship, City, Member } from './types';
+import { ViewState, AppData, Event, Championship, City, Member, Vehicle } from './types';
 import { Menu, X, Cloud, Loader2, Database, AlertCircle, Info, RefreshCw } from 'lucide-react';
 // Fixed: Removed non-existent initDatabase import from databaseService
 import { sqlInsert, sqlUpdate, sqlDelete, fetchAllData, isSupabaseConfigured, onAuthStateChange } from './services/databaseService';
@@ -161,7 +162,7 @@ const App: React.FC = () => {
     )
   }
 
-  const appData = data || { cities: [], championships: [], members: [], events: [] };
+  const appData = data || { cities: [], championships: [], members: [], events: [], vehicles: [] };
 
   const renderContent = () => {
     if (configMissing && currentView !== 'settings') return null;
@@ -179,6 +180,15 @@ const App: React.FC = () => {
             onAdd={m => addItem('members', m)} 
             onUpdate={m => updateItem('members', m)} 
             onDelete={id => deleteItem('members', id)} 
+          />
+        );
+      case 'vehicles':
+        return (
+          <VehiclesView
+            vehicles={appData.vehicles}
+            onAdd={v => addItem('vehicles', v)}
+            onUpdate={v => updateItem('vehicles', v)}
+            onDelete={id => deleteItem('vehicles', id)}
           />
         );
       case 'cities':

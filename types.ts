@@ -21,6 +21,17 @@ export interface Member {
   usertype?: UserRole; // Permissão de acesso (Master, Admin, User)
 }
 
+export type VehicleType = 'Carro' | 'Van' | 'Caminhão';
+
+export interface Vehicle {
+  id: string | number; 
+  type: VehicleType;
+  plate: string;
+  brand: string;
+  model: string;
+  status: boolean;
+}
+
 export interface Event {
   id: string;
   championshipId: string;
@@ -40,11 +51,12 @@ export interface ParsedEventRaw {
   memberNames: string[];
 }
 
-export type ViewState = 'dashboard' | 'events' | 'championships' | 'cities' | 'members' | 'settings';
+export type ViewState = 'dashboard' | 'events' | 'championships' | 'cities' | 'members' | 'vehicles' | 'settings';
 
 export interface AppData {
   cities: City[];
   championships: Championship[];
   members: Member[];
   events: Event[];
+  vehicles: Vehicle[];
 }
