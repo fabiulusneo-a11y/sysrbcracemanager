@@ -1,9 +1,13 @@
 
 import React, { useState } from 'react';
 import { signIn, signUp } from '../../services/databaseService';
-import { Loader2, AlertCircle, Mail, Lock, LogIn, UserPlus, Info, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, Mail, Lock, LogIn, UserPlus, Info, CheckCircle2, Zap } from 'lucide-react';
 
-const LoginView: React.FC = () => {
+interface LoginViewProps {
+  onDemoLogin: () => void;
+}
+
+const LoginView: React.FC<LoginViewProps> = ({ onDemoLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,14 +27,16 @@ const LoginView: React.FC = () => {
       } else {
         await signUp(email, password);
         setSuccess("Conta pré-registrada! Verifique seu e-mail para confirmar a ativação.");
-        // Opcional: Voltar para login após sucesso no cadastro
         setTimeout(() => setIsLogin(true), 5000);
       }
     } catch (err: any) {
       console.error(err);
       let message = err.message || "Erro ao processar solicitação.";
-      if (err.message?.includes("Invalid login credentials")) message = "E-mail ou senha incorretos.";
+      if (err.message?.includes("Invalid login credentials")) {
+          message = "E-mail ou senha incorretos. Caso ainda não tenha uma conta, use a aba 'Primeiro Acesso'.";
+      }
       if (err.message?.includes("User already registered")) message = "Este e-mail já possui uma conta ativa.";
+      if (err.message?.includes("Acesso não autorizado")) message = "Seu e-mail não foi autorizado pela administração da RBC.";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -139,6 +145,17 @@ const LoginView: React.FC = () => {
               )}
             </button>
           </form>
+
+          <div className="mt-6 flex flex-col items-center gap-4">
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Ou</span>
+              <button 
+                onClick={onDemoLogin}
+                className="flex items-center gap-2 text-xs font-black text-amber-500 hover:text-amber-400 uppercase tracking-widest bg-amber-900/20 px-4 py-2 rounded-xl border border-amber-900/50 transition-all hover:scale-105"
+              >
+                  <Zap size={14} />
+                  Acesso de Demonstração (Demo)
+              </button>
+          </div>
 
           <div className="mt-10 pt-8 border-t border-slate-800 text-center">
             <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest leading-relaxed">

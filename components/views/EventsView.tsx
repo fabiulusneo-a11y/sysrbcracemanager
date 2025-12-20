@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Event, AppData, Member, Vehicle } from '../../types';
-import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, Info, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, CheckCircle2 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
@@ -148,54 +148,7 @@ const EventsView: React.FC<EventsViewProps> = ({
 
   const closeModal = () => {
     setIsModalOpen(false);
-  };
-
-  const getConflictingEvent = (memberId: string) => {
-    if (!formData.date) return null;
-    return data.events.find(e => 
-      e.date === formData.date && 
-      e.id !== editingId && 
-      e.memberIds.some(mId => String(mId) === String(memberId))
-    );
-  };
-
-  const getConflictingVehicleEvent = (vehicleId: string | number) => {
-    if (!formData.date) return null;
-    return data.events.find(e => 
-      e.date === formData.date && 
-      e.id !== editingId && 
-      e.vehicleIds.some(vId => String(vId) === String(vehicleId))
-    );
-  };
-
-  const toggleMember = (memberId: string) => {
-    const isCurrentlySelected = formData.memberIds.some(mId => String(mId) === String(memberId));
-    if (!isCurrentlySelected) {
-        const conflict = getConflictingEvent(memberId);
-        if (conflict) return; 
-    }
-    setFormData(prev => {
-        const isAlreadyIn = prev.memberIds.some(mId => String(mId) === String(memberId));
-        const ids = isAlreadyIn
-            ? prev.memberIds.filter(mId => String(mId) !== String(memberId))
-            : [...prev.memberIds, memberId];
-        return { ...prev, memberIds: ids };
-    });
-  };
-
-  const toggleVehicle = (vehicleId: string | number) => {
-    const isCurrentlySelected = formData.vehicleIds.some(vId => String(vId) === String(vehicleId));
-    if (!isCurrentlySelected) {
-        const conflict = getConflictingVehicleEvent(vehicleId);
-        if (conflict) return; 
-    }
-    setFormData(prev => {
-        const isAlreadyIn = prev.vehicleIds.some(vId => String(vId) === String(vehicleId));
-        const ids = isAlreadyIn
-            ? prev.vehicleIds.filter(vId => String(vId) !== String(vehicleId))
-            : [...prev.vehicleIds, vehicleId];
-        return { ...prev, vehicleIds: ids };
-    });
+    setEditingId(null);
   };
 
   const handlePrintAnalytical = () => {
@@ -213,13 +166,10 @@ const EventsView: React.FC<EventsViewProps> = ({
             body { font-family: 'Inter', sans-serif; padding: 20px; font-size: 8px; color: #1e293b; }
             h1 { font-size: 16px; margin-bottom: 5px; color: #000; text-transform: uppercase; border-bottom: 2px solid #ef4444; display: inline-block; padding-bottom: 2px; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; }
-            th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; }
-            .event-info { text-align: left; padding-left: 5px; font-weight: bold; background: #fff; }
-            .member-col { background-color: #f1f5f9; }
-            .vehicle-col { background-color: #fef2f2; }
+            th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; vertical-align: middle; }
+            th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; line-height: 1; }
+            .event-info { text-align: left; padding-left: 5px; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; background: #fff; line-height: 1.2; }
             .checked { background-color: #ef4444 !important; color: #fff !important; font-weight: 900; }
-            .confirmed-label { font-size: 6px; color: #10b981; }
             .footer { margin-top: 20px; font-size: 7px; color: #94a3b8; text-align: center; font-weight: bold; }
           </style>
         </head>
@@ -277,7 +227,6 @@ const EventsView: React.FC<EventsViewProps> = ({
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Matriz de Escala RBC');
 
-      // Header configurations
       const headerRow1 = worksheet.addRow(['', '', '', '', 'EQUIPE TÉCNICA', ...new Array(activeMembers.length - 1).fill(''), 'FROTA OPERACIONAL']);
       worksheet.mergeCells(1, 5, 1, 4 + activeMembers.length);
       worksheet.mergeCells(1, 5 + activeMembers.length, 1, 4 + activeMembers.length + activeVehicles.length);
@@ -291,9 +240,8 @@ const EventsView: React.FC<EventsViewProps> = ({
         ...activeVehicles.map(v => v.plate.toUpperCase())
       ]);
 
-      // Style Headers
       [headerRow1, headerRow2].forEach((row, rowIndex) => {
-        row.eachCell((cell, colIndex) => {
+        row.eachCell((cell) => {
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowIndex === 0 ? 'FF1E293B' : 'FFEF4444' } };
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -301,7 +249,6 @@ const EventsView: React.FC<EventsViewProps> = ({
         });
       });
 
-      // Data Rows
       filteredEvents.forEach(event => {
         const rowData = [
           formatToBRDate(event.date),
@@ -327,7 +274,6 @@ const EventsView: React.FC<EventsViewProps> = ({
         });
       });
 
-      // Adjust column widths
       worksheet.columns.forEach((col, idx) => {
         col.width = idx < 4 ? 20 : 12;
       });
@@ -348,6 +294,28 @@ const EventsView: React.FC<EventsViewProps> = ({
     }
   };
 
+  const toggleMember = (id: string) => {
+    const current = [...formData.memberIds];
+    const index = current.indexOf(id);
+    if (index > -1) {
+      current.splice(index, 1);
+    } else {
+      current.push(id);
+    }
+    setFormData({ ...formData, memberIds: current });
+  };
+
+  const toggleVehicle = (id: string | number) => {
+    const current = [...formData.vehicleIds];
+    const index = current.indexOf(id);
+    if (index > -1) {
+      current.splice(index, 1);
+    } else {
+      current.push(id);
+    }
+    setFormData({ ...formData, vehicleIds: current });
+  };
+
   const getMemberTotal = (memberId: string) => {
     return filteredEvents.reduce((acc, event) => acc + (event.memberIds.some(mId => String(mId) === String(memberId)) ? 1 : 0), 0);
   };
@@ -360,13 +328,8 @@ const EventsView: React.FC<EventsViewProps> = ({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-slate-100">Calendário de Corridas</h2>
-            <span className="bg-red-900/40 text-red-400 text-xs font-bold px-2 py-1 rounded-full border border-red-900/50">
-              {filteredEvents.length} {filteredEvents.length === 1 ? 'evento' : 'eventos'}
-            </span>
-          </div>
-          <p className="text-slate-400">Gestão das etapas e logística.</p>
+          <h2 className="text-2xl font-bold text-slate-100 italic uppercase">Calendário</h2>
+          <p className="text-slate-400">Gestão de etapas e convocações.</p>
         </div>
         
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -380,10 +343,8 @@ const EventsView: React.FC<EventsViewProps> = ({
                 <span>Modo Analítico</span>
             </button>
             <button
-                type="button"
                 onClick={() => openModal()}
-                disabled={data.championships.length === 0 || data.cities.length === 0}
-                className="flex-1 sm:flex-none justify-center bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+                className="flex-1 sm:flex-none justify-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-bold shadow-lg shadow-red-900/20"
             >
                 <Plus size={18} />
                 <span>Novo Evento</span>
@@ -392,7 +353,7 @@ const EventsView: React.FC<EventsViewProps> = ({
       </div>
 
       <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-4 items-center flex-wrap">
-        <div className="flex items-center gap-2 text-slate-400 mr-2 w-full md:w-auto mb-2 md:mb-0">
+        <div className="flex items-center gap-2 text-slate-400 mr-2 w-full md:w-auto">
             <Filter size={18} />
             <span className="text-sm font-medium">Filtrar:</span>
         </div>
@@ -437,15 +398,15 @@ const EventsView: React.FC<EventsViewProps> = ({
       <div className="grid grid-cols-1 gap-4">
         {filteredEvents.map((event) => {
             const isConfirmed = event.confirmed !== false;
-            const city = getCityObj(event.cityId);
             const memberNames = getMemberNames(event.memberIds || []);
             const vehiclePlates = getVehiclePlates(event.vehicleIds || []);
+            const d = new Date(event.date + 'T12:00:00');
             
             return (
                 <div key={event.id} className="bg-slate-900 p-5 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 group hover:border-red-500/50 transition-colors">
                     <div className="flex-shrink-0 flex md:flex-col items-center gap-2 md:w-24 md:border-r md:border-slate-800 md:pr-4">
-                        <span className="text-2xl font-bold text-slate-100">{event.date.split('-')[2]}</span>
-                        <span className="text-sm font-bold text-red-500 uppercase tracking-wider">{new Date(event.date + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short' })}</span>
+                        <span className="text-2xl font-bold text-slate-100">{d.getDate()}</span>
+                        <span className="text-sm font-bold text-red-500 uppercase tracking-wider">{d.toLocaleDateString('pt-BR', { month: 'short' })}</span>
                     </div>
 
                     <div className="flex-grow space-y-3">
@@ -459,11 +420,9 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 </span>
                             </div>
                             <p className="text-slate-400 font-medium">{event.stage}</p>
-                            <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
-                                <div className="flex items-center gap-1.5">
-                                    <MapPin size={16} className="text-slate-600" />
-                                    {city?.name} - {city?.state}
-                                </div>
+                            <div className="flex items-center gap-1.5 mt-1 text-slate-500 text-sm">
+                                <MapPin size={14} className="text-slate-600" />
+                                {data.cities.find(c => c.id === event.cityId)?.name}
                             </div>
                         </div>
 
@@ -471,54 +430,37 @@ const EventsView: React.FC<EventsViewProps> = ({
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     <Users size={14} className="text-slate-600" />
-                                    Equipe Técnica
+                                    Equipe Técnica ({memberNames.length})
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {memberNames.length > 0 ? (
-                                        memberNames.map((name, idx) => (
-                                            <span key={idx} className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-md text-[10px] font-medium">
-                                                {name}
-                                            </span>
-                                        ))
-                                    ) : (
-                                        <span className="text-slate-600 text-[9px] italic">Sem equipe escalada</span>
-                                    )}
+                                    {memberNames.map((name, idx) => (
+                                        <span key={idx} className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-md text-[10px]">
+                                            {name}
+                                        </span>
+                                    ))}
                                 </div>
                             </div>
-
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     <Truck size={14} className="text-slate-600" />
-                                    Frota Escala
+                                    Logística de Frota ({vehiclePlates.length})
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {vehiclePlates.length > 0 ? (
-                                        vehiclePlates.map((plate, idx) => (
-                                            <span key={idx} className="px-2 py-0.5 bg-red-900/10 border border-red-900/20 text-red-400 rounded-md text-[10px] font-black tracking-tighter uppercase font-mono">
-                                                {plate}
-                                            </span>
-                                        ))
-                                    ) : (
-                                        <span className="text-slate-600 text-[9px] italic">Nenhum veículo alocado</span>
-                                    )}
+                                    {vehiclePlates.map((plate, idx) => (
+                                        <span key={idx} className="px-2 py-0.5 bg-blue-900/10 border border-blue-900/20 text-blue-400 rounded-md text-[10px] font-mono font-bold">
+                                            {plate}
+                                        </span>
+                                    ))}
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div className="flex md:flex-col gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); openModal(event); }} 
-                            className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors"
-                        >
+                        <button onClick={() => openModal(event)} className="p-2 text-slate-500 hover:text-blue-400 rounded-lg transition-colors">
                             <Edit2 size={18} />
                         </button>
-                        <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, event }); }} 
-                            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
-                        >
+                        <button onClick={() => setDeleteModal({ isOpen: true, event })} className="p-2 text-slate-500 hover:text-red-400 rounded-lg transition-colors">
                             <Trash2 size={18} />
                         </button>
                     </div>
@@ -526,15 +468,6 @@ const EventsView: React.FC<EventsViewProps> = ({
             );
         })}
       </div>
-
-      <DeleteConfirmModal 
-        isOpen={deleteModal.isOpen}
-        itemName={deleteModal.event?.stage || ''}
-        title="Excluir Evento"
-        description="Esta ação removerá a etapa permanentemente do calendário e da contagem de escala da equipe."
-        onClose={() => setDeleteModal({ isOpen: false, event: null })}
-        onConfirm={() => deleteModal.event && onDelete(deleteModal.event.id)}
-      />
 
       {isAnalyticalModalOpen && (
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
@@ -600,7 +533,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                                         <tr key={event.id} className="hover:bg-slate-900/50 group transition-colors h-14">
                                             <td className="sticky left-0 z-10 bg-slate-950 border-r border-slate-800 p-4 text-sm font-bold">
                                                 <div className="flex flex-col">
-                                                    <span className="text-white">{event.date.split('-')[2]}/{event.date.split('-')[1]}</span>
+                                                    <span className="text-white">{d.getDate()}/{d.getMonth()+1}</span>
                                                     <span className="text-[10px] text-slate-500 font-medium uppercase">{d.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
                                                 </div>
                                             </td>
@@ -608,11 +541,10 @@ const EventsView: React.FC<EventsViewProps> = ({
                                                 <div className="flex flex-col truncate">
                                                     <span className="text-xs font-bold text-slate-300 truncate">{getChampName(event.championshipId)}</span>
                                                     <span className="text-[10px] text-red-500 font-black uppercase truncate tracking-tight">{event.stage}</span>
-                                                    <span className="text-[9px] text-slate-500 uppercase truncate">{getCityObj(event.cityId)?.name}</span>
+                                                    <span className="text-[9px] text-slate-500 uppercase truncate">{data.cities.find(c => c.id === event.cityId)?.name}</span>
                                                 </div>
                                             </td>
 
-                                            {/* Intersection Matrix: Members */}
                                             {activeMembers.map(m => {
                                                 const isAssigned = event.memberIds.some(id => String(id) === String(m.id));
                                                 return (
@@ -626,7 +558,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                                                 );
                                             })}
 
-                                            {/* Intersection Matrix: Vehicles */}
                                             {activeVehicles.map(v => {
                                                 const isAssigned = event.vehicleIds.some(id => String(id) === String(v.id));
                                                 return (
@@ -643,7 +574,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                                     );
                                 })}
 
-                                {/* Totals Footer Row */}
                                 <tr className="bg-slate-900/80 font-bold border-t-2 border-slate-800 h-12">
                                     <td colSpan={2} className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4 text-[10px] uppercase text-slate-400 text-right">
                                         Total de Escalas no Período
@@ -662,158 +592,139 @@ const EventsView: React.FC<EventsViewProps> = ({
                             </tbody>
                         </table>
                   </div>
-
-                  <div className="p-3 bg-slate-900 border-t border-slate-800 flex justify-between items-center px-6">
-                      <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-2">
-                              <CheckCircle2 size={14} className="text-green-500" />
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Convocado</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                              <Truck size={14} className="text-red-500" />
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Veículo Escalado</span>
-                          </div>
-                      </div>
-                      <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
-                          RBC Motorsport Logística • Gerado em {new Date().toLocaleDateString('pt-BR')}
-                      </p>
-                  </div>
               </div>
           </div>
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-6 text-white border-l-4 border-red-600 pl-4 uppercase italic tracking-tighter">{editingId ? 'Editar Evento RBC' : 'Novo Evento RBC'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Campeonato</label>
-                    <select
-                        required
-                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-3 text-white focus:ring-2 focus:ring-red-500 outline-none font-bold"
-                        value={formData.championshipId}
-                        onChange={e => setFormData({ ...formData, championshipId: e.target.value })}
-                    >
-                        <option value="" disabled>Selecione...</option>
-                        {data.championships.map(c => ( <option key={c.id} value={c.id}>{c.name}</option> ))}
-                    </select>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50 sticky top-0 z-10">
+              <h3 className="text-xl font-black text-white italic uppercase tracking-tight">{editingId ? 'Editar Evento' : 'Novo Evento'}</h3>
+              <button onClick={closeModal} className="text-slate-500 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Campeonato</label>
+                  <select 
+                    required 
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                    value={formData.championshipId}
+                    onChange={e => setFormData({ ...formData, championshipId: e.target.value })}
+                  >
+                    <option value="" disabled>Selecione...</option>
+                    {data.championships.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Etapa / Nome da Prova</label>
-                    <input
-                        type="text"
-                        required
-                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-3 text-white focus:ring-2 focus:ring-red-500 outline-none font-bold"
-                        value={formData.stage}
-                        onChange={e => setFormData({ ...formData, stage: e.target.value })}
-                    />
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Etapa / Descrição</label>
+                  <input 
+                    type="text" 
+                    required 
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                    value={formData.stage}
+                    onChange={e => setFormData({ ...formData, stage: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Data</label>
+                  <input 
+                    type="date" 
+                    required 
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]"
+                    value={formData.date}
+                    onChange={e => setFormData({ ...formData, date: e.target.value })}
+                  />
+                </div>
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Cidade / Local</label>
+                  <select 
+                    required 
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                    value={formData.cityId}
+                    onChange={e => setFormData({ ...formData, cityId: e.target.value })}
+                  >
+                    <option value="" disabled>Selecione...</option>
+                    {data.cities.map(c => <option key={c.id} value={c.id}>{c.name} - {c.state}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-1 md:col-span-2">
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Status</label>
+                    <button type="button" onClick={() => setFormData({...formData, confirmed: !formData.confirmed})} className={`w-full p-3 rounded-xl border font-bold uppercase text-xs ${formData.confirmed ? 'bg-green-900/20 border-green-800 text-green-400' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
+                        {formData.confirmed ? 'Confirmado' : 'Indefinido'}
+                    </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Data da Etapa</label>
-                    <input
-                        type="date"
-                        required
-                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-3 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark] font-bold"
-                        value={formData.date}
-                        onChange={e => setFormData({ ...formData, date: e.target.value, memberIds: [], vehicleIds: [] })}
-                    />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Convocação de Equipe</label>
+                    <span className="text-[10px] font-bold text-slate-600">{formData.memberIds.length} selecionados</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                    {activeMembers.map(member => (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() => toggleMember(member.id)}
+                        className={`p-2 rounded-lg border text-left transition-all ${
+                          formData.memberIds.includes(member.id)
+                            ? 'bg-red-900/20 border-red-500/50 text-white font-bold'
+                            : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
+                        }`}
+                      >
+                        <span className="text-[11px]">{member.name}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Cidade Sede</label>
-                    <select
-                        required
-                        className="w-full rounded-lg bg-slate-950 border-slate-700 border p-3 text-white focus:ring-2 focus:ring-red-500 outline-none font-bold"
-                        value={formData.cityId}
-                        onChange={e => setFormData({ ...formData, cityId: e.target.value })}
-                    >
-                        <option value="" disabled>Selecione...</option>
-                        {sortedCities.map(c => ( <option key={c.id} value={c.id}>{c.name} - {c.state}</option> ))}
-                    </select>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Logística de Frota</label>
+                    <span className="text-[10px] font-bold text-slate-600">{formData.vehicleIds.length} selecionados</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                    {activeVehicles.map(vehicle => (
+                      <button
+                        key={vehicle.id}
+                        type="button"
+                        onClick={() => toggleVehicle(vehicle.id)}
+                        className={`p-2 rounded-lg border text-left transition-all ${
+                          formData.vehicleIds.includes(vehicle.id)
+                            ? 'bg-blue-900/20 border-blue-500/50 text-white font-bold'
+                            : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
+                        }`}
+                      >
+                        <span className="text-[11px] font-mono tracking-wider">{vehicle.plate}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <Users size={16} className="text-red-500" />
-                        Convocação da Equipe
-                    </label>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase">{formData.memberIds.length} selecionados</span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border border-slate-800 rounded-xl p-4 bg-slate-950 max-h-48 overflow-y-auto shadow-inner">
-                    {activeMembers.map(member => {
-                        const isSelected = formData.memberIds.some(mId => String(mId) === String(member.id));
-                        const conflict = getConflictingEvent(member.id);
-                        const isUnavailable = !!conflict;
-                        
-                        return (
-                            <div 
-                                key={member.id} 
-                                onClick={() => !isUnavailable && toggleMember(member.id)}
-                                className={`p-2 rounded-lg border flex flex-col gap-1 transition-all select-none
-                                    ${isSelected ? 'bg-red-900/20 border-red-600 text-red-400 font-bold' : 'bg-slate-900 border-slate-800 text-slate-400'}
-                                    ${isUnavailable ? 'opacity-30 grayscale cursor-not-allowed border-dashed' : 'cursor-pointer hover:border-slate-600'}
-                                `}
-                            >
-                                <div className="flex items-center justify-between gap-2 overflow-hidden">
-                                    <span className="text-[10px] truncate">{member.name}</span>
-                                    {isSelected && <Check size={12} className="shrink-0" />}
-                                    {isUnavailable && <AlertCircle size={10} className="text-red-600 shrink-0" />}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <Truck size={16} className="text-blue-500" />
-                        Escala da Frota
-                    </label>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase">{formData.vehicleIds.length} veículos</span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border border-slate-800 rounded-xl p-4 bg-slate-950 max-h-48 overflow-y-auto shadow-inner">
-                    {activeVehicles.map(vehicle => {
-                        const isSelected = formData.vehicleIds.some(vId => String(vId) === String(vehicle.id));
-                        const conflict = getConflictingVehicleEvent(vehicle.id);
-                        const isUnavailable = !!conflict;
-                        
-                        return (
-                            <div 
-                                key={vehicle.id} 
-                                onClick={() => !isUnavailable && toggleVehicle(vehicle.id)}
-                                className={`p-2 rounded-lg border flex flex-col gap-1 transition-all select-none
-                                    ${isSelected ? 'bg-blue-900/20 border-blue-600 text-blue-400 font-bold' : 'bg-slate-900 border-slate-800 text-slate-400'}
-                                    ${isUnavailable ? 'opacity-30 grayscale cursor-not-allowed border-dashed' : 'cursor-pointer hover:border-slate-600'}
-                                `}
-                            >
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[10px] font-mono tracking-wider truncate">{vehicle.plate}</span>
-                                    {isSelected && <Check size={12} className="shrink-0" />}
-                                    {isUnavailable && <AlertCircle size={10} className="text-red-600 shrink-0" />}
-                                </div>
-                                <span className="text-[8px] uppercase tracking-tighter truncate opacity-60">{vehicle.brand} {vehicle.model}</span>
-                            </div>
-                        );
-                    })}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-6 border-t border-slate-800">
-                <button type="button" onClick={closeModal} className="px-5 py-2.5 text-slate-400 hover:bg-slate-800 rounded-xl transition-colors font-bold uppercase text-xs">Descartar</button>
-                <button type="submit" className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-black transition-all shadow-lg shadow-red-900/20 uppercase text-xs tracking-widest">Salvar Escala Operacional</button>
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-800">
+                <button type="button" onClick={closeModal} className="px-6 py-3 text-slate-400 hover:bg-slate-800 rounded-xl font-bold text-xs uppercase transition-colors">Descartar</button>
+                <button type="submit" className="px-10 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase transition-all shadow-xl shadow-red-900/30">Salvar Evento</button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal 
+        isOpen={deleteModal.isOpen}
+        itemName={`${getChampName(deleteModal.event?.championshipId || '')} - ${deleteModal.event?.stage}`}
+        title="Excluir Evento"
+        description="Esta ação removerá permanentemente o evento do calendário RBC Motorsport."
+        onClose={() => setDeleteModal({ isOpen: false, event: null })}
+        onConfirm={() => deleteModal.event && onDelete(deleteModal.event.id)}
+      />
     </div>
   );
 };

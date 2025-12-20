@@ -39,12 +39,14 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
 
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+  // Fix: Added missing vehicleIds property to satisfy Omit<Event, 'id'> type
   const [newEventData, setNewEventData] = useState<Omit<Event, 'id'>>({
     championshipId: '',
     cityId: '',
     date: new Date().toISOString().split('T')[0],
     stage: '',
     memberIds: [],
+    vehicleIds: [],
     confirmed: true
   });
 
@@ -216,12 +218,14 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
 
   const openAddEventModal = () => {
     if (!selectedChampId) return;
+    // Fix: Added missing vehicleIds property to satisfy Omit<Event, 'id'> type
     setNewEventData({
         championshipId: selectedChampId,
         cityId: cities[0]?.id || '',
         date: new Date().toISOString().split('T')[0],
         stage: `Etapa ${(events.filter(e => e.championshipId === selectedChampId).length + 1)}`,
         memberIds: [],
+        vehicleIds: [],
         confirmed: true
     });
     setIsAddEventModalOpen(true);

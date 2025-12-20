@@ -10,8 +10,7 @@ import VehiclesView from './components/views/VehiclesView';
 import SettingsView from './components/views/SettingsView';
 import LoginView from './components/views/LoginView';
 import { ViewState, AppData, Event, Championship, City, Member, Vehicle } from './types';
-import { Menu, X, Cloud, Loader2, Database, AlertCircle, Info, RefreshCw } from 'lucide-react';
-// Fixed: Removed non-existent initDatabase import from databaseService
+import { Menu, X, Cloud, Loader2, Database, AlertCircle, Info, RefreshCw, Zap } from 'lucide-react';
 import { sqlInsert, sqlUpdate, sqlDelete, fetchAllData, isSupabaseConfigured, onAuthStateChange } from './services/databaseService';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -26,9 +25,10 @@ const App: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState<{title: string, msg: string} | null>(null);
   const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [isDemo, setIsDemo] = useState(localStorage.getItem('RBC_DEMO_MODE') === 'true');
 
   const loadData = async () => {
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() && !isDemo) {
         setConfigMissing(true);
         return;
     }
@@ -40,14 +40,22 @@ const App: React.FC = () => {
       setConfigMissing(false);
     } catch (error: any) {
       console.error("Erro ao carregar dados:", error);
-      setErrorMessage("Erro de conexão: Não foi possível obter os dados do Supabase.");
+      if (!isDemo) {
+        setErrorMessage("Erro de conexão: Não foi possível obter os dados do Supabase.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Subscribe to auth changes
+    // Se estiver no modo demo, não precisamos ouvir o auth do Supabase para iniciar
+    if (isDemo) {
+        setIsInitializing(false);
+        loadData();
+        return;
+    }
+
     const { data: { subscription } } = onAuthStateChange((currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -61,15 +69,26 @@ const App: React.FC = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
-    if (user) {
+    if (user || isDemo) {
       setIsInitializing(false);
     }
-  }, [data]);
+  }, [data, user, isDemo]);
+
+  const handleDemoLogin = () => {
+    setIsDemo(true);
+    localStorage.setItem('RBC_DEMO_MODE', 'true');
+    // Força recarregamento do estado
+    window.location.reload();
+  };
 
   const addItem = async (table: string, item: any) => {
+    if (isDemo) {
+        setWarningMessage({ title: 'Modo Demonstração', msg: 'No modo demo, as alterações são apenas visuais e não são persistidas permanentemente.' });
+        return;
+    }
     setLoading(true);
     try {
       await sqlInsert(table, item);
@@ -82,6 +101,10 @@ const App: React.FC = () => {
   };
 
   const updateItem = async (table: string, item: any) => {
+    if (isDemo) {
+        setWarningMessage({ title: 'Modo Demonstração', msg: 'No modo demo, as alterações são apenas visuais e não são persistidas permanentemente.' });
+        return;
+    }
     setLoading(true);
     try {
       const { id, ...rest } = item;
@@ -94,14 +117,18 @@ const App: React.FC = () => {
     }
   };
 
-  const deleteItem = async (table: string, id: string) => {
+  const deleteItem = async (table: string, id: string | number) => {
+    if (isDemo) {
+        setWarningMessage({ title: 'Modo Demonstração', msg: 'No modo demo, as exclusões não são persistidas permanentemente.' });
+        return;
+    }
     if (!data) return;
     
     if (table === 'championships' || table === 'cities' || table === 'members') {
         const inUse = data.events.some(e => {
             if (table === 'championships') return e.championshipId === id;
             if (table === 'cities') return e.cityId === id;
-            if (table === 'members') return e.memberIds.includes(id);
+            if (table === 'members') return e.memberIds.includes(String(id));
             return false;
         });
 
@@ -130,8 +157,16 @@ const App: React.FC = () => {
     setCurrentView('events');
   };
 
-  if (!user && !isInitializing) {
-    return <LoginView />;
+  const handleLogout = () => {
+    if (isDemo) {
+        localStorage.removeItem('RBC_DEMO_MODE');
+        setIsDemo(false);
+        window.location.reload();
+    }
+  };
+
+  if (!user && !isDemo && !isInitializing) {
+    return <LoginView onDemoLogin={handleDemoLogin} />;
   }
 
   if (isInitializing) {
@@ -147,92 +182,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (errorMessage && !data) {
-    return (
-      <div className="h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 p-8">
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-md text-center">
-            <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Erro de Carregamento</h2>
-            <p className="text-slate-400 mb-6">{errorMessage}</p>
-            <button onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-xl font-bold flex items-center justify-center gap-2 mx-auto transition-all">
-                <RefreshCw size={18} /> Tentar Novamente
-            </button>
-        </div>
-      </div>
-    )
-  }
-
   const appData = data || { cities: [], championships: [], members: [], events: [], vehicles: [] };
-
-  const renderContent = () => {
-    if (configMissing && currentView !== 'settings') return null;
-
-    switch (currentView) {
-      case 'dashboard':
-        return <Dashboard data={appData} onChangeView={setCurrentView} onEditEvent={handleEditEventNavigation} />;
-      case 'members':
-        return (
-          <MembersView 
-            members={appData.members} 
-            events={appData.events}
-            championships={appData.championships}
-            cities={appData.cities}
-            onAdd={m => addItem('members', m)} 
-            onUpdate={m => updateItem('members', m)} 
-            onDelete={id => deleteItem('members', id)} 
-          />
-        );
-      case 'vehicles':
-        return (
-          <VehiclesView
-            vehicles={appData.vehicles}
-            onAdd={v => addItem('vehicles', v)}
-            onUpdate={v => updateItem('vehicles', v)}
-            onDelete={id => deleteItem('vehicles', id)}
-          />
-        );
-      case 'cities':
-        return (
-          <CitiesView 
-            cities={appData.cities} 
-            events={appData.events}
-            championships={appData.championships}
-            onAdd={c => addItem('cities', c)} 
-            onUpdate={c => updateItem('cities', c)} 
-            onDelete={id => deleteItem('cities', id)} 
-          />
-        );
-      case 'championships':
-        return (
-          <ChampionshipsView 
-            championships={appData.championships} 
-            events={appData.events}
-            cities={appData.cities}
-            members={appData.members}
-            onAdd={c => addItem('championships', c)} 
-            onUpdate={c => updateItem('championships', c)} 
-            onDelete={id => deleteItem('championships', id)} 
-            onUpdateEvent={e => updateItem('events', e)}
-            onAddEvent={e => addItem('events', e)}
-          />
-        );
-      case 'events':
-        return (
-            <EventsView 
-                data={appData} 
-                onAdd={e => addItem('events', e)} 
-                onUpdate={e => updateItem('events', e)} 
-                onDelete={id => deleteItem('events', id)}
-                initialEditingId={editingEventId}
-                onClearEditingId={() => setEditingEventId(null)}
-            />
-        );
-      case 'settings':
-        return <SettingsView onDataChanged={loadData} />;
-      default:
-        return <Dashboard data={appData} onChangeView={setCurrentView} onEditEvent={handleEditEventNavigation} />;
-    }
-  };
 
   return (
     <div className="h-screen bg-slate-950 flex text-slate-100 overflow-hidden relative">
@@ -257,6 +207,14 @@ const App: React.FC = () => {
                   <button onClick={() => setWarningMessage(null)} className="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl font-bold transition-colors">
                       Entendido
                   </button>
+              </div>
+          </div>
+      )}
+
+      {isDemo && (
+          <div className="fixed bottom-4 right-4 z-[150] animate-bounce">
+              <div className="bg-amber-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 border-2 border-amber-400 font-black text-xs uppercase italic tracking-tighter">
+                  <Zap size={14} /> Modo de Demonstração Ativo
               </div>
           </div>
       )}
@@ -293,7 +251,15 @@ const App: React.FC = () => {
                    </div>
                    <button onClick={() => setCurrentView('settings')} className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-xl font-bold transition-all shadow-lg shadow-red-900/20">Ir para Configurações</button>
                </div>
-           ) : renderContent()}
+           ) : (
+            currentView === 'dashboard' ? <Dashboard data={appData} onChangeView={setCurrentView} onEditEvent={handleEditEventNavigation} /> :
+            currentView === 'members' ? <MembersView members={appData.members} events={appData.events} championships={appData.championships} cities={appData.cities} onAdd={m => addItem('members', m)} onUpdate={m => updateItem('members', m)} onDelete={id => deleteItem('members', id)} /> :
+            currentView === 'vehicles' ? <VehiclesView vehicles={appData.vehicles} onAdd={v => addItem('vehicles', v)} onUpdate={v => updateItem('vehicles', v)} onDelete={id => deleteItem('vehicles', id)} /> :
+            currentView === 'cities' ? <CitiesView cities={appData.cities} events={appData.events} championships={appData.championships} onAdd={c => addItem('cities', c)} onUpdate={c => updateItem('cities', c)} onDelete={id => deleteItem('cities', id)} /> :
+            currentView === 'championships' ? <ChampionshipsView championships={appData.championships} events={appData.events} cities={appData.cities} members={appData.members} onAdd={c => addItem('championships', c)} onUpdate={c => updateItem('championships', c)} onDelete={id => deleteItem('championships', id)} onUpdateEvent={e => updateItem('events', e)} onAddEvent={e => addItem('events', e)} /> :
+            currentView === 'events' ? <EventsView data={appData} onAdd={e => addItem('events', e)} onUpdate={e => updateItem('events', e)} onDelete={id => deleteItem('events', id)} initialEditingId={editingEventId} onClearEditingId={() => setEditingEventId(null)} /> :
+            currentView === 'settings' ? <SettingsView onDataChanged={loadData} /> : <Dashboard data={appData} onChangeView={setCurrentView} onEditEvent={handleEditEventNavigation} />
+           )}
         </div>
       </main>
     </div>
