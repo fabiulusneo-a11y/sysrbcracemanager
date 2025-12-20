@@ -154,7 +154,6 @@ const EventsView: React.FC<EventsViewProps> = ({
       return;
     }
 
-    // Calcula o agrupamento de datas para o rowspan
     const dateCounts: Record<string, number> = {};
     filteredEvents.forEach(e => {
       dateCounts[e.date] = (dateCounts[e.date] || 0) + 1;
@@ -185,30 +184,13 @@ const EventsView: React.FC<EventsViewProps> = ({
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
             th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; vertical-align: middle; }
             th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; line-height: 1; }
-            
-            /* Célula de Data com Destaque (Referência 20251220-1547) */
-            .date-cell-merged { 
-              border: 2px solid #64748b !important; 
-              font-weight: 900 !important; 
-              background-color: #f1f5f9 !important; 
-              color: #0f172a !important; 
-              font-size: 8px !important;
-            }
-            
+            .date-cell-merged { border: 2px solid #64748b !important; font-weight: 900 !important; background-color: #f1f5f9 !important; color: #0f172a !important; font-size: 8px !important; }
             .event-info { text-align: left; padding-left: 5px; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; background: #fff; line-height: 1.2; }
             .checked { background-color: #ef4444 !important; color: #fff !important; font-weight: 900; }
+            .total-row { background-color: #f8fafc; font-weight: 900; }
             .footer { margin-top: 20px; font-size: 7px; color: #94a3b8; text-align: center; font-weight: bold; }
-            
-            /* Linha de separação para dados que possuem a mesma data */
-            tr.date-group-separator td { 
-              border-bottom: 2.5px solid #ef4444 !important; 
-            }
-
-            @media print {
-              .toolbar { display: none !important; }
-              .content-wrapper { padding-top: 0 !important; }
-              body { padding: 0; }
-            }
+            tr.date-group-separator td { border-bottom: 2.5px solid #ef4444 !important; }
+            @media print { .toolbar { display: none !important; } .content-wrapper { padding-top: 0 !important; } body { padding: 0; } }
           </style>
         </head>
         <body>
@@ -240,10 +222,8 @@ const EventsView: React.FC<EventsViewProps> = ({
                   const isFirstOfDate = !renderedDates.has(event.date);
                   const rowspan = isFirstOfDate ? dateCounts[event.date] : 0;
                   if (isFirstOfDate) renderedDates.add(event.date);
-
                   const isLastOfDateGroup = index === filteredEvents.length - 1 || filteredEvents[index + 1].date !== event.date;
                   const rowClass = isLastOfDateGroup ? 'date-group-separator' : '';
-                  
                   return `
                     <tr class="${rowClass}">
                       ${isFirstOfDate ? `<td rowspan="${rowspan}" class="date-cell-merged" style="text-align: center;">${formatToBRDate(event.date)}</td>` : ''}
@@ -261,6 +241,17 @@ const EventsView: React.FC<EventsViewProps> = ({
                     </tr>
                   `;
                 }).join('')}
+                <tr class="total-row">
+                  <td colspan="4" style="text-align: right; padding-right: 10px;">CONTAGEM TOTAL</td>
+                  ${activeMembers.map(m => {
+                    const total = filteredEvents.filter(e => e.memberIds.some(id => String(id) === String(m.id))).length;
+                    return `<td>${total}</td>`;
+                  }).join('')}
+                  ${activeVehicles.map(v => {
+                    const total = filteredEvents.filter(e => e.vehicleIds.some(id => String(id) === String(v.id))).length;
+                    return `<td>${total}</td>`;
+                  }).join('')}
+                </tr>
               </tbody>
             </table>
             <div class="footer">Gerado em ${new Date().toLocaleString('pt-BR')} • RBC Motorsport System</div>
@@ -268,7 +259,6 @@ const EventsView: React.FC<EventsViewProps> = ({
         </body>
       </html>
     `;
-
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
@@ -278,11 +268,9 @@ const EventsView: React.FC<EventsViewProps> = ({
     try {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Matriz de Escala RBC');
-
       const headerRow1 = worksheet.addRow(['', '', '', '', 'EQUIPE TÉCNICA', ...new Array(activeMembers.length - 1).fill(''), 'FROTA OPERACIONAL']);
       worksheet.mergeCells(1, 5, 1, 4 + activeMembers.length);
       worksheet.mergeCells(1, 5 + activeMembers.length, 1, 4 + activeMembers.length + activeVehicles.length);
-      
       const headerRow2 = worksheet.addRow([
         'DATA', 
         'CAMPEONATO', 
@@ -291,7 +279,6 @@ const EventsView: React.FC<EventsViewProps> = ({
         ...activeMembers.map(m => m.name.toUpperCase()), 
         ...activeVehicles.map(v => v.plate.toUpperCase())
       ]);
-
       [headerRow1, headerRow2].forEach((row, rowIndex) => {
         row.eachCell((cell) => {
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
@@ -300,7 +287,6 @@ const EventsView: React.FC<EventsViewProps> = ({
           cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         });
       });
-
       filteredEvents.forEach(event => {
         const rowData = [
           formatToBRDate(event.date),
@@ -311,11 +297,9 @@ const EventsView: React.FC<EventsViewProps> = ({
           ...activeVehicles.map(v => event.vehicleIds.some(id => String(id) === String(v.id)) ? 'ESCALADO' : '')
         ];
         const row = worksheet.addRow(rowData);
-        
         row.eachCell((cell, colIndex) => {
           cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
           cell.alignment = { horizontal: colIndex <= 4 ? 'left' : 'center', vertical: 'middle' };
-          
           if (cell.value === 'CONVOCADO') {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
             cell.font = { color: { argb: 'FF166534' }, bold: true, size: 8 };
@@ -326,10 +310,22 @@ const EventsView: React.FC<EventsViewProps> = ({
         });
       });
 
-      worksheet.columns.forEach((col, idx) => {
-        col.width = idx < 4 ? 20 : 12;
+      // Linha de totais no Excel
+      const totalRowData = [
+        'CONTAGEM TOTAL', '', '', '',
+        ...activeMembers.map(m => filteredEvents.filter(e => e.memberIds.some(id => String(id) === String(m.id))).length),
+        ...activeVehicles.map(v => filteredEvents.filter(e => e.vehicleIds.some(id => String(id) === String(v.id))).length)
+      ];
+      const totalRow = worksheet.addRow(totalRowData);
+      worksheet.mergeCells(totalRow.number, 1, totalRow.number, 4);
+      totalRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        cell.alignment = { horizontal: 'center' };
+        cell.border = { top: { style: 'medium' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
       });
 
+      worksheet.columns.forEach((col, idx) => { col.width = idx < 4 ? 20 : 12; });
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
@@ -348,7 +344,7 @@ const EventsView: React.FC<EventsViewProps> = ({
 
   const toggleMember = (id: string) => {
     const current = [...formData.memberIds];
-    const index = current.indexOf(id);
+    const index = current.findIndex(mId => String(mId) === String(id));
     if (index > -1) {
       current.splice(index, 1);
     } else {
@@ -359,21 +355,13 @@ const EventsView: React.FC<EventsViewProps> = ({
 
   const toggleVehicle = (id: string | number) => {
     const current = [...formData.vehicleIds];
-    const index = current.indexOf(id);
+    const index = current.findIndex(vId => String(vId) === String(id));
     if (index > -1) {
       current.splice(index, 1);
     } else {
       current.push(id);
     }
     setFormData({ ...formData, vehicleIds: current });
-  };
-
-  const getMemberTotal = (memberId: string) => {
-    return filteredEvents.reduce((acc, event) => acc + (event.memberIds.some(mId => String(mId) === String(memberId)) ? 1 : 0), 0);
-  };
-
-  const getVehicleTotal = (vehicleId: string | number) => {
-    return filteredEvents.reduce((acc, event) => acc + (event.vehicleIds.some(vId => String(vId) === String(vehicleId)) ? 1 : 0), 0);
   };
 
   return (
@@ -383,7 +371,6 @@ const EventsView: React.FC<EventsViewProps> = ({
           <h2 className="text-2xl font-bold text-slate-100 italic uppercase">Calendário</h2>
           <p className="text-slate-400">Gestão de etapas e convocações.</p>
         </div>
-        
         <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
                 type="button"
@@ -409,7 +396,6 @@ const EventsView: React.FC<EventsViewProps> = ({
             <Filter size={18} />
             <span className="text-sm font-medium">Filtrar:</span>
         </div>
-        
         <select
             value={filterChampionship}
             onChange={(e) => setFilterChampionship(e.target.value)}
@@ -418,7 +404,6 @@ const EventsView: React.FC<EventsViewProps> = ({
             <option value="">Todos os Campeonatos</option>
             {data.championships.map(c => ( <option key={c.id} value={c.id}>{c.name}</option> ))}
         </select>
-
         <div className="flex items-center gap-2 w-full md:w-auto">
             <input 
                 type="date"
@@ -434,7 +419,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                 className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]"
             />
         </div>
-
         {(filterChampionship || startDate || endDate) && (
             <button 
                 type="button"
@@ -453,14 +437,12 @@ const EventsView: React.FC<EventsViewProps> = ({
             const memberNames = getMemberNames(event.memberIds || []);
             const vehiclePlates = getVehiclePlates(event.vehicleIds || []);
             const d = new Date(event.date + 'T12:00:00');
-            
             return (
                 <div key={event.id} className="bg-slate-900 p-5 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 group hover:border-red-500/50 transition-colors">
                     <div className="flex-shrink-0 flex md:flex-col items-center gap-2 md:w-24 md:border-r md:border-slate-800 md:pr-4">
                         <span className="text-2xl font-bold text-slate-100">{d.getDate()}</span>
                         <span className="text-sm font-bold text-red-500 uppercase tracking-wider">{d.toLocaleDateString('pt-BR', { month: 'short' })}</span>
                     </div>
-
                     <div className="flex-grow space-y-3">
                         <div>
                             <div className="flex items-center gap-3">
@@ -477,7 +459,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 {data.cities.find(c => c.id === event.cityId)?.name}
                             </div>
                         </div>
-
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-800/50">
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -507,7 +488,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                             </div>
                         </div>
                     </div>
-
                     <div className="flex md:flex-col gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openModal(event)} className="p-2 text-slate-500 hover:text-blue-400 rounded-lg transition-colors">
                             <Edit2 size={18} />
@@ -545,11 +525,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                              {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                              <span className="hidden sm:inline">Exportar Excel</span>
                           </button>
-                          <button 
-                            type="button" 
-                            onClick={handlePrintAnalytical}
-                            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg flex items-center gap-2 text-sm font-bold transition-all"
-                          >
+                          <button type="button" onClick={handlePrintAnalytical} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
                              <Printer size={16} />
                              <span className="hidden sm:inline">Imprimir</span>
                           </button>
@@ -558,14 +534,12 @@ const EventsView: React.FC<EventsViewProps> = ({
                           </button>
                       </div>
                   </div>
-                  
                   <div className="flex-1 overflow-auto bg-slate-950 p-0 relative">
                         <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
                             <thead className="sticky top-0 z-20 shadow-lg">
                                 <tr className="bg-slate-900 text-[10px] font-bold text-slate-500 uppercase tracking-widest h-10">
                                     <th className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4 w-32">Etapa / Data</th>
                                     <th className="sticky left-32 z-30 bg-slate-900 border-r border-slate-800 p-4 w-60">Competição / Local</th>
-                                    
                                     {activeMembers.map(m => (
                                         <th key={m.id} className="p-2 text-center border-r border-slate-800 bg-slate-900 w-24 border-b-2 border-slate-800">
                                             <div className="rotate-0 truncate" title={m.name}>{m.name.split(' ')[0]}</div>
@@ -596,7 +570,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                                                     <span className="text-[9px] text-slate-500 uppercase truncate">{data.cities.find(c => c.id === event.cityId)?.name}</span>
                                                 </div>
                                             </td>
-
                                             {activeMembers.map(m => {
                                                 const isAssigned = event.memberIds.some(id => String(id) === String(m.id));
                                                 return (
@@ -609,7 +582,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                                                     </td>
                                                 );
                                             })}
-
                                             {activeVehicles.map(v => {
                                                 const isAssigned = event.vehicleIds.some(id => String(id) === String(v.id));
                                                 return (
@@ -625,21 +597,27 @@ const EventsView: React.FC<EventsViewProps> = ({
                                         </tr>
                                     );
                                 })}
-
-                                <tr className="bg-slate-900/80 font-bold border-t-2 border-slate-800 h-12">
+                                {/* Linha de Totais */}
+                                <tr className="bg-slate-900/90 font-bold border-t-2 border-slate-800 h-14 sticky bottom-0 z-20">
                                     <td colSpan={2} className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4 text-[10px] uppercase text-slate-400 text-right">
-                                        Total de Escalas no Período
+                                        Contagem Total de Convocações
                                     </td>
-                                    {activeMembers.map(m => (
-                                        <td key={m.id} className="text-center border-r border-slate-800 text-white text-xs">
-                                            {getMemberTotal(m.id)}
-                                        </td>
-                                    ))}
-                                    {activeVehicles.map(v => (
-                                        <td key={v.id} className="text-center border-r border-slate-800 text-red-500 text-xs">
-                                            {getVehicleTotal(v.id)}
-                                        </td>
-                                    ))}
+                                    {activeMembers.map(m => {
+                                        const total = filteredEvents.filter(e => e.memberIds.some(id => String(id) === String(m.id))).length;
+                                        return (
+                                            <td key={m.id} className="text-center border-r border-slate-800 text-slate-200 text-sm font-black">
+                                                {total}
+                                            </td>
+                                        );
+                                    })}
+                                    {activeVehicles.map(v => {
+                                        const total = filteredEvents.filter(e => e.vehicleIds.some(id => String(id) === String(v.id))).length;
+                                        return (
+                                            <td key={v.id} className="text-center border-r border-slate-800 text-red-500 text-sm font-black">
+                                                {total}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             </tbody>
                         </table>
@@ -657,49 +635,26 @@ const EventsView: React.FC<EventsViewProps> = ({
                 <X size={24} />
               </button>
             </div>
-            
             <form onSubmit={handleSubmit} className="p-6 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-2">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Campeonato</label>
-                  <select 
-                    required 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none"
-                    value={formData.championshipId}
-                    onChange={e => setFormData({ ...formData, championshipId: e.target.value })}
-                  >
+                  <select required className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none" value={formData.championshipId} onChange={e => setFormData({ ...formData, championshipId: e.target.value })}>
                     <option value="" disabled>Selecione...</option>
                     {data.championships.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Etapa / Descrição</label>
-                  <input 
-                    type="text" 
-                    required 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none"
-                    value={formData.stage}
-                    onChange={e => setFormData({ ...formData, stage: e.target.value })}
-                  />
+                  <input type="text" required className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none" value={formData.stage} onChange={e => setFormData({ ...formData, stage: e.target.value })} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Data</label>
-                  <input 
-                    type="date" 
-                    required 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]"
-                    value={formData.date}
-                    onChange={e => setFormData({ ...formData, date: e.target.value })}
-                  />
+                  <input type="date" required className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                 </div>
                 <div className="col-span-1 md:col-span-2">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Cidade / Local</label>
-                  <select 
-                    required 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none"
-                    value={formData.cityId}
-                    onChange={e => setFormData({ ...formData, cityId: e.target.value })}
-                  >
+                  <select required className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none" value={formData.cityId} onChange={e => setFormData({ ...formData, cityId: e.target.value })}>
                     <option value="" disabled>Selecione...</option>
                     {data.cities.map(c => <option key={c.id} value={c.id}>{c.name} - {c.state}</option>)}
                   </select>
@@ -719,20 +674,23 @@ const EventsView: React.FC<EventsViewProps> = ({
                     <span className="text-[10px] font-bold text-slate-600">{formData.memberIds.length} selecionados</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                    {activeMembers.map(member => (
-                      <button
-                        key={member.id}
-                        type="button"
-                        onClick={() => toggleMember(member.id)}
-                        className={`p-2 rounded-lg border text-left transition-all ${
-                          formData.memberIds.includes(member.id)
-                            ? 'bg-red-900/20 border-red-500/50 text-white font-bold'
-                            : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
-                        }`}
-                      >
-                        <span className="text-[11px]">{member.name}</span>
-                      </button>
-                    ))}
+                    {activeMembers.map(member => {
+                      const isSelected = formData.memberIds.some(mId => String(mId) === String(member.id));
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => toggleMember(member.id)}
+                          className={`p-2 rounded-lg border text-left transition-all ${
+                            isSelected
+                              ? 'bg-red-900/20 border-red-500/50 text-white font-bold'
+                              : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className="text-[11px]">{member.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -742,24 +700,26 @@ const EventsView: React.FC<EventsViewProps> = ({
                     <span className="text-[10px] font-bold text-slate-600">{formData.vehicleIds.length} selecionados</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                    {activeVehicles.map(vehicle => (
-                      <button
-                        key={vehicle.id}
-                        type="button"
-                        onClick={() => toggleVehicle(vehicle.id)}
-                        className={`p-2 rounded-lg border text-left transition-all ${
-                          formData.vehicleIds.includes(vehicle.id)
-                            ? 'bg-blue-900/20 border-blue-500/50 text-white font-bold'
-                            : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
-                        }`}
-                      >
-                        <span className="text-[11px] font-mono tracking-wider">{vehicle.plate}</span>
-                      </button>
-                    ))}
+                    {activeVehicles.map(vehicle => {
+                      const isSelected = formData.vehicleIds.some(vId => String(vId) === String(vehicle.id));
+                      return (
+                        <button
+                          key={vehicle.id}
+                          type="button"
+                          onClick={() => toggleVehicle(vehicle.id)}
+                          className={`p-2 rounded-lg border text-left transition-all ${
+                            isSelected
+                              ? 'bg-blue-900/20 border-blue-500/50 text-white font-bold'
+                              : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className="text-[11px] font-mono tracking-wider">{vehicle.plate}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
-
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-800">
                 <button type="button" onClick={closeModal} className="px-6 py-3 text-slate-400 hover:bg-slate-800 rounded-xl font-bold text-xs uppercase transition-colors">Descartar</button>
                 <button type="submit" className="px-10 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase transition-all shadow-xl shadow-red-900/30">Salvar Evento</button>
