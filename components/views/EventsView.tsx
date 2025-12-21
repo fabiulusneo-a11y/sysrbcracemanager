@@ -182,11 +182,11 @@ const EventsView: React.FC<EventsViewProps> = ({
             .content-wrapper { padding-top: 50px; }
             h1 { font-size: 16px; margin-bottom: 5px; color: #000; text-transform: uppercase; border-bottom: 2px solid #ef4444; display: inline-block; padding-bottom: 2px; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; vertical-align: middle; }
+            th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; vertical-align: middle; font-size: 7px; line-height: 1.2; }
             th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; line-height: 1; }
             .date-cell-merged { border: 2px solid #64748b !important; font-weight: 900 !important; background-color: #f1f5f9 !important; color: #0f172a !important; font-size: 8px !important; }
             .event-info { text-align: left; padding-left: 5px; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; background: #fff; line-height: 1.2; }
-            .checked { background-color: #ef4444 !important; color: #fff !important; font-weight: 900; }
+            .checked { background-color: #ef4444 !important; color: #fff !important; font-weight: 900; font-size: 7px; line-height: 1.2; }
             .total-row { background-color: #f8fafc; font-weight: 900; }
             .footer { margin-top: 20px; font-size: 7px; color: #94a3b8; text-align: center; font-weight: bold; }
             tr.date-group-separator td { border-bottom: 2.5px solid #ef4444 !important; }
