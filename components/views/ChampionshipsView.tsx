@@ -73,17 +73,31 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
       return;
     }
 
+    // Gerar timestamp formatado: YYMMDD-HHmm (ex: 251222-1320)
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2);
+    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+    const dd = now.getDate().toString().padStart(2, '0');
+    const hh = now.getHours().toString().padStart(2, '0');
+    const min = now.getMinutes().toString().padStart(2, '0');
+    const timestamp = `${yy}${mm}${dd}-${hh}${min}`;
+    
+    // Nomenclatura solicitada
+    const reportBaseName = "Cronograma de Etapas - ";
+    const champName = selectedChamp?.name || "Campeonato";
+    const fullFileName = `${reportBaseName}${champName} ${timestamp}`;
+
     const tableRows = champEvents.map((event, index) => {
       const d = getDisplayDate(event.date);
       const isConfirmed = event.confirmed !== false;
       return `
         <tr>
-          <td style="text-align: center; border-bottom: 1px solid #eee; color: #999; font-weight: 700;">${index + 1}</td>
-          <td style="white-space: nowrap; border-bottom: 1px solid #eee;">${d.toLocaleDateString('pt-BR')}</td>
-          <td style="font-weight: 800; color: #000; border-bottom: 1px solid #eee;">${event.stage}</td>
-          <td style="border-bottom: 1px solid #eee;">${getCityName(event.cityId)}</td>
-          <td style="text-align: center; border-bottom: 1px solid #eee;">
-            <div style="display: inline-block; padding: 1px 6px; border: 1px solid #ddd; border-radius: 3px; font-size: 8px; font-weight: 800; text-transform: uppercase; background: ${isConfirmed ? '#f0fdf4' : '#fffbeb'}; color: ${isConfirmed ? '#166534' : '#92400e'};">
+          <td style="text-align: center; border-bottom: 1px solid #ddd; color: #666; font-weight: 700; padding: 8px 4px;">${index + 1}</td>
+          <td style="white-space: nowrap; border-bottom: 1px solid #ddd; padding: 8px 4px;">${d.toLocaleDateString('pt-BR')}</td>
+          <td style="font-weight: 800; color: #000; border-bottom: 1px solid #ddd; padding: 8px 4px;">${event.stage}</td>
+          <td style="border-bottom: 1px solid #ddd; padding: 8px 4px;">${getCityName(event.cityId)}</td>
+          <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px 4px;">
+            <div style="display: inline-block; padding: 2px 8px; border: 1.5px solid #ccc; border-radius: 4px; font-size: 8px; font-weight: 900; text-transform: uppercase; background: ${isConfirmed ? '#f0fdf4' : '#fffbeb'}; color: ${isConfirmed ? '#166534' : '#92400e'};">
               ${isConfirmed ? 'Confirmado' : 'Indefinido'}
             </div>
           </td>
@@ -96,94 +110,157 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8">
-        <title>RBC - ${selectedChamp?.name}</title>
+        <title>${fullFileName}</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
         <style>
-          @page { size: A4; margin: 1cm; }
-          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #333; font-size: 10px; line-height: 1.2; }
+          @page { size: A4; margin: 0; }
+          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #f8fafc; color: #1e293b; font-size: 11px; line-height: 1.3; }
           
-          table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
-          thead { display: table-header-group; }
-          tr { page-break-inside: avoid; page-break-after: auto; }
+          /* Container fixado para captura perfeita */
+          .pdf-wrapper { 
+            background: #fff; 
+            width: 794px; /* Largura A4 em pixels (96dpi) */
+            margin: 0 auto; 
+            padding: 40px; 
+            box-sizing: border-box;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            min-height: 1123px;
+          }
           
-          .report-header-content { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; }
-          .report-header-content h1 { margin: 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; color: #000; }
-          .meta { text-align: right; font-size: 8px; color: #666; font-weight: 600; }
+          table { width: 100%; border-collapse: collapse; }
+          
+          .header-table { width: 100%; margin-bottom: 20px; border-bottom: 3px solid #000; }
+          .header-left h1 { margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; color: #000; }
+          .header-right { text-align: right; font-size: 9px; color: #64748b; font-weight: 700; }
 
-          th { text-align: left; padding: 6px 8px; background: #f8fafc; border-bottom: 1.5px solid #000; font-size: 8px; font-weight: 900; text-transform: uppercase; color: #000; }
-          td { padding: 5px 8px; vertical-align: middle; }
-
-          .summary-first-page { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; margin-bottom: 15px; }
-          .summary-first-page label { font-size: 7px; font-weight: 800; text-transform: uppercase; color: #9ca3af; letter-spacing: 1px; }
-          .summary-first-page h2 { margin: 0; font-size: 16px; font-weight: 900; color: #000; }
-          .summary-first-page p { margin: 3px 0 0 0; font-weight: 600; color: #666; font-size: 9px; }
+          th { text-align: left; padding: 10px 8px; background: #f1f5f9; border-bottom: 2px solid #000; font-size: 9px; font-weight: 900; text-transform: uppercase; color: #000; }
+          
+          .summary-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+          .summary-card label { font-size: 8px; font-weight: 900; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; display: block; margin-bottom: 4px; }
+          .summary-card h2 { margin: 0; font-size: 18px; font-weight: 900; color: #000; text-transform: uppercase; }
+          .summary-card p { margin: 5px 0 0 0; font-weight: 700; color: #475569; font-size: 10px; }
           
           .print-toolbar {
-            position: fixed; top: 0; left: 0; right: 0; background: #000; color: #fff; padding: 8px 20px;
+            position: fixed; top: 0; left: 0; right: 0; background: #0f172a; color: #fff; padding: 12px 24px;
             display: flex; justify-content: space-between; align-items: center; z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
           }
-          .btn-print {
-            background: #ef4444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px;
+          .toolbar-brand { display: flex; align-items: center; gap: 10px; }
+          .toolbar-actions { display: flex; gap: 10px; }
+          
+          .btn {
+            border: none; padding: 8px 18px; border-radius: 6px;
             font-weight: 800; font-size: 10px; cursor: pointer; text-transform: uppercase;
+            transition: all 0.2s ease; display: flex; align-items: center; gap: 8px;
           }
+          .btn-print { background: #dc2626; color: #fff; }
+          .btn-print:hover { background: #b91c1c; transform: translateY(-1px); }
+          
+          .btn-pdf { background: #2563eb; color: #fff; }
+          .btn-pdf:hover { background: #1d4ed8; transform: translateY(-1px); }
+          
+          .btn-close { background: #475569; color: #fff; }
+          .btn-close:hover { background: #334155; }
 
           @media print {
             .print-toolbar, .print-toolbar-spacer { display: none !important; }
-            body { padding: 0; }
+            body { background: #fff; padding: 0; }
+            .pdf-wrapper { box-shadow: none; margin: 0; width: 100%; padding: 0; }
           }
         </style>
+        <script>
+          function downloadPDF() {
+            const element = document.getElementById('capture-area');
+            const fileName = "${fullFileName}.pdf";
+            
+            // Forçar scroll para o topo antes da captura
+            window.scrollTo(0,0);
+            
+            const opt = {
+              margin: 0,
+              filename: fileName,
+              image: { type: 'jpeg', quality: 1.0 },
+              html2canvas: { 
+                scale: 2, 
+                useCORS: true, 
+                letterRendering: true,
+                backgroundColor: '#ffffff'
+              },
+              jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            
+            document.body.style.cursor = 'wait';
+            const btn = document.querySelector('.btn-pdf');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Processando...';
+            btn.style.opacity = '0.5';
+
+            html2pdf().from(element).set(opt).save().then(() => {
+                document.body.style.cursor = 'default';
+                btn.innerHTML = originalText;
+                btn.style.opacity = '1';
+            });
+          }
+        </script>
       </head>
       <body>
         <div class="print-toolbar">
-          <span style="font-weight: 800; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">Relatório de Competições RBC (Modo Compacto)</span>
-          <button class="btn-print" onclick="window.print()">IMPRIMIR AGORA (A4)</button>
+          <div class="toolbar-brand">
+            <div style="width: 28px; height: 28px; background: #dc2626; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-style: italic;">R</div>
+            <div>
+              <div style="font-weight: 900; font-size: 12px; letter-spacing: 0.5px; color: #fff;">RBC MOTORSPORT</div>
+              <div style="font-weight: 700; font-size: 8px; color: #94a3b8; text-transform: uppercase;">Relatório Digital de Cronograma</div>
+            </div>
+          </div>
+          <div class="toolbar-actions">
+            <button class="btn btn-close" onclick="window.close()">Fechar</button>
+            <button class="btn btn-pdf" onclick="downloadPDF()">Baixar PDF (.pdf)</button>
+            <button class="btn btn-print" onclick="window.print()">Imprimir</button>
+          </div>
         </div>
-        <div style="height: 40px;" class="print-toolbar-spacer"></div>
+        <div style="height: 70px;" class="print-toolbar-spacer"></div>
 
-        <div style="padding: 15px;">
+        <div id="capture-area" class="pdf-wrapper">
+          <table class="header-table">
+            <tr>
+              <td class="header-left">
+                <h1>RBC Motorsport</h1>
+                <div style="font-weight: 700; color: #64748b; text-transform: uppercase; font-size: 10px; margin-top: 4px;">Cronograma Oficial de Competições</div>
+              </td>
+              <td class="header-right">
+                EMISSÃO DO DOCUMENTO<br>
+                <b style="color: #000; font-size: 10px;">${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</b>
+              </td>
+            </tr>
+          </table>
+
+          <div class="summary-card">
+            <label>Campeonato Selecionado</label>
+            <h2>${selectedChamp?.name}</h2>
+            <p>Este documento contém a escala de <b>${champEvents.length} etapas</b> registradas.</p>
+          </div>
+
           <table>
             <thead>
               <tr>
-                <th colspan="5" style="background: transparent; border: none; padding: 0;">
-                  <div class="report-header-content">
-                    <div>
-                      <h1>RBC Motorsport</h1>
-                      <div style="font-weight: 700; color: #666; text-transform: uppercase; font-size: 9px; margin-top: 2px;">Cronograma de Etapas • ${selectedChamp?.name}</div>
-                    </div>
-                    <div class="meta">
-                      EMISSÃO: <b>${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}</b>
-                    </div>
-                  </div>
-                </th>
-              </tr>
-              <tr>
-                <th style="width: 30px; text-align: center;">Nº</th>
-                <th style="width: 12%;">Data</th>
-                <th style="width: 35%;">Etapa / Descrição</th>
-                <th style="width: 35%;">Cidade / Localização</th>
-                <th style="text-align: center; width: 12%;">Status</th>
+                <th style="width: 35px; text-align: center;">Nº</th>
+                <th style="width: 15%;">Data</th>
+                <th style="width: 30%;">Etapa</th>
+                <th style="width: 30%;">Cidade / Localização</th>
+                <th style="text-align: center; width: 10%;">Status</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td colspan="5" style="padding: 0; border: none;">
-                   <div class="summary-first-page">
-                      <label>Campeonato Selecionado</label>
-                      <h2>${selectedChamp?.name}</h2>
-                      <p>Total de <b>${champEvents.length} eventos</b> agendados no sistema.</p>
-                   </div>
-                </td>
-              </tr>
-              ${champEvents.length > 0 ? tableRows : '<tr><td colspan="5" style="text-align: center; padding: 30px; color: #999;">Nenhuma etapa registrada.</td></tr>'}
+              ${champEvents.length > 0 ? tableRows : '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8; font-weight: 700;">Nenhuma etapa agendada para este campeonato.</td></tr>'}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="5" style="text-align: center; font-size: 7px; color: #999; padding-top: 30px; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
-                  Página gerada via RBC Motorsport Management System • Modo de Alta Densidade
-                </td>
-              </tr>
-            </tfoot>
           </table>
+
+          <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px; text-align: center;">
+            <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px;">
+              Documento Processado via RBC Motorsport Management System
+            </div>
+          </div>
         </div>
       </body>
       </html>
@@ -269,8 +346,9 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
                 </div>
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto">
-                <button onClick={handlePrint} title="Imprimir Relatório" className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors border border-slate-700 shadow-sm">
+                <button onClick={handlePrint} title="Gerar Relatório / PDF" className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors border border-slate-700 shadow-sm flex items-center gap-2">
                     <Printer size={20} />
+                    <span className="text-xs font-bold uppercase hidden sm:inline">Relatório</span>
                 </button>
                 <button onClick={openAddEventModal} className="flex-grow sm:flex-grow-0 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold shadow-lg shadow-red-900/20">
                     <Plus size={18} />
