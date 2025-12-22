@@ -114,7 +114,7 @@ export const fetchAllData = async (): Promise<AppData> => {
       stage: e.stage,
       memberIds: e.member_ids || [],
       vehicleIds: e.vehicle_ids || [],
-      modelForecast: e.model_ids || [], // Map model_ids column to modelForecast
+      modelForecast: e.model_ids || [], 
       confirmed: e.confirmed
     })),
     vehicles: (vehicles || []).map(v => ({ 
@@ -154,22 +154,28 @@ const formatPayload = (table: string, data: any) => {
   }
 
   const formattedData = { ...data };
+  
   if ('email' in formattedData) {
     if (!formattedData.email) formattedData.email = null;
     else formattedData.email = formattedData.email.trim().toLowerCase();
   }
+
   if (table === 'events') {
-    if (data.championshipId) formattedData.championship_id = data.championshipId;
-    if (data.cityId) formattedData.city_id = data.cityId;
-    if (data.memberIds) formattedData.member_ids = data.memberIds;
-    if (data.vehicleIds) formattedData.vehicle_ids = data.vehicleIds;
-    if (data.modelForecast) formattedData.model_ids = data.modelForecast; // Map modelForecast back to model_ids
+    // Explicit mapping to database schema snake_case
+    if (data.championshipId !== undefined) formattedData.championship_id = data.championshipId;
+    if (data.cityId !== undefined) formattedData.city_id = data.cityId;
+    if (data.memberIds !== undefined) formattedData.member_ids = data.memberIds;
+    if (data.vehicleIds !== undefined) formattedData.vehicle_ids = data.vehicleIds;
+    if (data.modelForecast !== undefined) formattedData.model_ids = data.modelForecast; 
+    
+    // Remove camelCase properties to send a clean payload
     delete formattedData.championshipId;
     delete formattedData.cityId;
     delete formattedData.memberIds;
     delete formattedData.vehicleIds;
     delete formattedData.modelForecast;
   }
+  
   return formattedData;
 };
 
@@ -183,6 +189,12 @@ export const sqlInsert = async (table: string, data: any) => {
 export const sqlUpdate = async (table: string, id: string | number, data: any) => {
   const client = getSupabase();
   const formattedPayload = formatPayload(table, data);
+  
+  // Prevent primary key from being included in update payload
+  if ('id' in formattedPayload) {
+    delete (formattedPayload as any).id;
+  }
+
   const { error } = await client.from(table).update(formattedPayload).eq('id', id);
   if (error) throw error;
 };
@@ -191,4 +203,33 @@ export const sqlDelete = async (table: string, id: string | number) => {
   const client = getSupabase();
   const { error } = await client.from(table).delete().eq('id', id);
   if (error) throw error;
+};
+
+// --- SYSTEM RESTORE FUNCTIONS ---
+
+export const clearAllTables = async () => {
+    const client = getSupabase();
+    const tables = ['events', 'championships', 'cities', 'members', 'vehicles', 'models'];
+    for (const table of tables) {
+        const { error } = await client.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) console.error(`Erro ao limpar tabela ${table}:`, error);
+    }
+};
+
+export const restoreFromBackup = async (backupData: AppData) => {
+    await clearAllTables();
+    
+    const insertPromises = [
+        ...backupData.cities.map(item => sqlInsert('cities', item)),
+        ...backupData.championships.map(item => sqlInsert('championships', item)),
+        ...backupData.members.map(item => sqlInsert('members', item)),
+        ...backupData.vehicles.map(item => sqlInsert('vehicles', item)),
+        ...backupData.models.map(item => sqlInsert('models', item)),
+    ];
+    
+    await Promise.all(insertPromises);
+    
+    for (const event of backupData.events) {
+        await sqlInsert('events', event);
+    }
 };
