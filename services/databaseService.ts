@@ -1,6 +1,6 @@
 
 import { createClient, SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
-import { City, Championship, Member, Event, AppData, Vehicle } from '../types';
+import { City, Championship, Member, Event, AppData, Vehicle, Model } from '../types';
 
 const DEFAULT_SUPABASE_URL = 'https://jrgzsvjarnaiwxzwkeve.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyZ3pzdmphcm5haXd4endrZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwOTkyNTgsImV4cCI6MjA4MTY3NTI1OH0.tLmJix-r76m58BzJgUFJsg0xZiApJQ2NLZvOBvEu9Cw';
@@ -91,13 +91,15 @@ export const fetchAllData = async (): Promise<AppData> => {
     { data: championships },
     { data: members },
     { data: events },
-    { data: vehicles }
+    { data: vehicles },
+    { data: models }
   ] = await Promise.all([
     client.from('cities').select('*').order('name'),
     client.from('championships').select('*').order('name'),
     client.from('members').select('*').order('name'),
     client.from('events').select('*').order('date'),
-    client.from('vehicles').select('*').order('placa')
+    client.from('vehicles').select('*').order('placa'),
+    client.from('models').select('*').order('tipo')
   ]);
 
   return {
@@ -112,6 +114,7 @@ export const fetchAllData = async (): Promise<AppData> => {
       stage: e.stage,
       memberIds: e.member_ids || [],
       vehicleIds: e.vehicle_ids || [],
+      modelForecast: e.model_ids || [], // Map model_ids column to modelForecast
       confirmed: e.confirmed
     })),
     vehicles: (vehicles || []).map(v => ({ 
@@ -121,6 +124,12 @@ export const fetchAllData = async (): Promise<AppData> => {
       brand: v.marca,
       model: v.modelo,
       status: v.status !== false 
+    })),
+    models: (models || []).map(m => ({
+      id: m.id,
+      type: m.tipo,
+      brand: m.marca,
+      model: m.modelo
     }))
   };
 };
@@ -136,6 +145,14 @@ const formatPayload = (table: string, data: any) => {
     };
   }
 
+  if (table === 'models') {
+    return {
+      tipo: data.type,
+      marca: data.brand,
+      modelo: data.model
+    };
+  }
+
   const formattedData = { ...data };
   if ('email' in formattedData) {
     if (!formattedData.email) formattedData.email = null;
@@ -146,10 +163,12 @@ const formatPayload = (table: string, data: any) => {
     if (data.cityId) formattedData.city_id = data.cityId;
     if (data.memberIds) formattedData.member_ids = data.memberIds;
     if (data.vehicleIds) formattedData.vehicle_ids = data.vehicleIds;
+    if (data.modelForecast) formattedData.model_ids = data.modelForecast; // Map modelForecast back to model_ids
     delete formattedData.championshipId;
     delete formattedData.cityId;
     delete formattedData.memberIds;
     delete formattedData.vehicleIds;
+    delete formattedData.modelForecast;
   }
   return formattedData;
 };
@@ -163,7 +182,6 @@ export const sqlInsert = async (table: string, data: any) => {
 
 export const sqlUpdate = async (table: string, id: string | number, data: any) => {
   const client = getSupabase();
-  // Fixed: Removed incorrect line that called formatPayload with extra arguments
   const formattedPayload = formatPayload(table, data);
   const { error } = await client.from(table).update(formattedPayload).eq('id', id);
   if (error) throw error;

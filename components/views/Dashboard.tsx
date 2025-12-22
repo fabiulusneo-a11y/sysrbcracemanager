@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AppData, Event } from '../../types';
-import { CalendarDays, MapPin, Users, Trophy, ChevronRight, CheckCircle, HelpCircle } from 'lucide-react';
+import { CalendarDays, MapPin, Users, Trophy, ChevronRight, CheckCircle, HelpCircle, Package } from 'lucide-react';
 
 interface DashboardProps {
   data: AppData;
@@ -10,13 +10,11 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ data, onChangeView, onEditEvent }) => {
-  // Helper to safely parse date string "YYYY-MM-DD" to local date object for display/logic
   const getDisplayDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(year, month - 1, day);
   };
 
-  // 1. Filter events starting from today
   const futureEvents = [...data.events]
     .filter(e => {
         const eventDate = getDisplayDate(e.date);
@@ -26,7 +24,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onChangeView, onEditEvent }
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // 2. Group events by date string (YYYY-MM-DD)
   const groupedEvents: Record<string, Event[]> = {};
   futureEvents.forEach(event => {
       if (!groupedEvents[event.date]) {
@@ -35,13 +32,12 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onChangeView, onEditEvent }
       groupedEvents[event.date].push(event);
   });
 
-  // 3. Take all unique dates in chronological order (guaranteed by futureEvents sort)
   const upcomingDates = Array.from(new Set(futureEvents.map(e => e.date)));
 
   const stats = [
     { label: 'Eventos Futuros', value: futureEvents.length, icon: CalendarDays, color: 'bg-blue-600', textColor: 'text-blue-100' },
     { label: 'Integrantes Ativos', value: data.members.filter(m => m.active !== false).length, icon: Users, color: 'bg-green-600', textColor: 'text-green-100' },
-    { label: 'Campeonatos', value: data.championships.length, icon: Trophy, color: 'bg-yellow-600', textColor: 'text-yellow-100' },
+    { label: 'Modelos Cadastrados', value: data.models?.length || 0, icon: Package, color: 'bg-amber-600', textColor: 'text-amber-100' },
     { label: 'Cidades Cadastradas', value: data.cities.length, icon: MapPin, color: 'bg-purple-600', textColor: 'text-purple-100' },
   ];
 
@@ -95,13 +91,11 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onChangeView, onEditEvent }
 
                 return (
                     <div key={dateKey} className="p-4 flex flex-col sm:flex-row gap-4 items-start hover:bg-slate-950/30 transition-colors">
-                        {/* Date Column */}
                         <div className="bg-slate-800 text-red-500 flex flex-col items-center justify-center w-14 h-14 rounded-lg border border-slate-700 flex-shrink-0 shadow-inner">
                             <span className="text-[10px] font-bold uppercase tracking-tighter">{dateObj.toLocaleString('pt-BR', { month: 'short' })}</span>
                             <span className="text-2xl font-bold leading-none">{dateObj.getDate()}</span>
                         </div>
                         
-                        {/* Events Container - Side by Side */}
                         <div className="flex-grow flex flex-wrap gap-3 w-full">
                             {eventsOnThisDate.map(event => {
                                 const isConfirmed = event.confirmed !== false;

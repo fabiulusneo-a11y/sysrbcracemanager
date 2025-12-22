@@ -26,6 +26,16 @@
         background: #475569;
       }
 
+      /* Ocultar setas de incremento (spin-buttons) */
+      input::-webkit-outer-spin-button,
+      input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type=number] {
+        -moz-appearance: textfield;
+      }
+
       /* Estilos de Impressão Profissional */
       @media print {
         @page {

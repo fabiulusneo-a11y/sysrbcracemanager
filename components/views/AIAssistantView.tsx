@@ -33,18 +33,15 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
   const confirmImport = () => {
     if (!previewData) return;
 
-    // Local Logic to map parsed data to existing entities or create new ones
     const newEvents: Event[] = [];
     const newChamps: Championship[] = [];
     const newCities: City[] = [];
     const newMembers: Member[] = [];
 
-    // Helper maps to track IDs during this batch import
-    const champMap = new Map<string, string>(); // Name -> ID
-    const cityMap = new Map<string, string>(); // Name -> ID
-    const memberMap = new Map<string, string>(); // Name -> ID
+    const champMap = new Map<string, string>();
+    const cityMap = new Map<string, string>();
+    const memberMap = new Map<string, string>();
 
-    // Pre-fill maps with existing data
     data.championships.forEach(c => champMap.set(c.name.toLowerCase(), c.id));
     data.cities.forEach(c => cityMap.set(c.name.toLowerCase(), c.id));
     data.members.forEach(m => memberMap.set(m.name.toLowerCase(), m.id));
@@ -53,15 +50,13 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
         // 1. Resolve Championship
         let champId = champMap.get(item.championshipName.toLowerCase());
         if (!champId) {
-            // Check if we already staged it in this batch
             const existingNew = newChamps.find(c => c.name.toLowerCase() === item.championshipName.toLowerCase());
             if (existingNew) {
                 champId = existingNew.id;
             } else {
                 champId = crypto.randomUUID();
-                const newC: Championship = { id: champId, name: item.championshipName };
-                newChamps.push(newC);
-                champMap.set(item.championshipName.toLowerCase(), champId); // Add to map for subsequent items
+                newChamps.push({ id: champId, name: item.championshipName });
+                champMap.set(item.championshipName.toLowerCase(), champId);
             }
         }
 
@@ -73,15 +68,14 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
                  cityId = existingNew.id;
              } else {
                 cityId = crypto.randomUUID();
-                const newC: City = { id: cityId, name: item.cityName, state: item.stateCode || 'XX' };
-                newCities.push(newC);
+                newCities.push({ id: cityId, name: item.cityName, state: item.stateCode || 'XX' });
                 cityMap.set(item.cityName.toLowerCase(), cityId);
              }
         }
 
         // 3. Resolve Members
         const eventMemberIds: string[] = [];
-        item.memberNames.forEach(mName => {
+        (item.memberNames || []).forEach(mName => {
             let mId = memberMap.get(mName.toLowerCase());
             if (!mId) {
                 const existingNew = newMembers.find(m => m.name.toLowerCase() === mName.toLowerCase());
@@ -89,8 +83,7 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
                     mId = existingNew.id;
                 } else {
                     mId = crypto.randomUUID();
-                    const newM: Member = { id: mId, name: mName, role: 'Novo', active: true }; // Default role
-                    newMembers.push(newM);
+                    newMembers.push({ id: mId, name: mName, role: 'Novo', active: true });
                     memberMap.set(mName.toLowerCase(), mId);
                 }
             }
@@ -98,7 +91,6 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
         });
 
         // 4. Create Event
-        // Fixed: Added missing vehicleIds property which is required by Event interface
         newEvents.push({
             id: crypto.randomUUID(),
             championshipId: champId!,
@@ -107,33 +99,36 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
             stage: item.stageName,
             memberIds: eventMemberIds,
             vehicleIds: [],
-            confirmed: true // Default to true for imported events
+            // Corrected to modelForecast to match the Event interface
+            modelForecast: [],
+            confirmed: true
         });
     });
 
     onImportEvents(newEvents, newChamps, newCities, newMembers);
-    setSuccessMsg(`Importação realizada com sucesso! ${newEvents.length} eventos adicionados.`);
+    setSuccessMsg(`Importação realizada! ${newEvents.length} eventos adicionados.`);
     setPreviewData(null);
     setInputText('');
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <BrainCircuit className="text-purple-500" />
-            Importação Inteligente
-        </h2>
-        <p className="text-slate-400">Cole textos de e-mails, PDFs ou WhatsApp. A IA irá estruturar o calendário para você.</p>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="flex justify-between items-end">
+        <div>
+            <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+                <BrainCircuit className="text-purple-500" />
+                Importação com IA
+            </h2>
+            <p className="text-slate-400">Cole o cronograma. A IA detecta integrantes, campeonatos e cidades.</p>
+        </div>
       </div>
 
       <div className="bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-800">
-        <label className="block text-sm font-medium text-slate-400 mb-2">Texto do Calendário</label>
         <textarea
             className="w-full h-48 p-4 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none resize-none font-mono text-sm"
             placeholder={`Exemplo:
-Campeonato Verde.
-Etapa 1 = 01/01/2026; Local: Guarulhos, SP; Integrantes: João, Lucas`}
+Copa Truck - Etapa 2 em Cascavel dia 15/06/2026. 
+Mecânicos: João e Marcos.`}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
         ></textarea>
@@ -142,10 +137,10 @@ Etapa 1 = 01/01/2026; Local: Guarulhos, SP; Integrantes: João, Lucas`}
             <button
                 onClick={handleParse}
                 disabled={isLoading || !inputText}
-                className="bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all"
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 text-white px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all shadow-lg shadow-purple-900/20"
             >
                 {isLoading ? <Loader2 className="animate-spin" size={20} /> : <BrainCircuit size={20} />}
-                Processar com IA
+                Processar com Gemini
             </button>
         </div>
       </div>
@@ -160,50 +155,47 @@ Etapa 1 = 01/01/2026; Local: Guarulhos, SP; Integrantes: João, Lucas`}
       {previewData && (
         <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden animate-fade-in">
             <div className="p-4 bg-purple-900/20 border-b border-purple-800/50 flex justify-between items-center">
-                <div>
-                    <h3 className="font-bold text-purple-300">Pré-visualização</h3>
-                    <p className="text-xs text-purple-400">Verifique os dados antes de confirmar a importação.</p>
-                </div>
+                <h3 className="font-bold text-purple-300">Resumo da Extração</h3>
                 <button 
                     onClick={confirmImport}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-colors"
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-black flex items-center gap-2 shadow-sm transition-colors uppercase tracking-widest"
                 >
-                    Confirmar Importação <ArrowRight size={16} />
+                    Confirmar <ArrowRight size={16} />
                 </button>
             </div>
             
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-950 text-slate-400 font-medium">
+                    <thead className="bg-slate-950 text-slate-400 font-bold uppercase text-[10px] tracking-widest">
                         <tr>
-                            <th className="p-3">Data</th>
-                            <th className="p-3">Campeonato / Etapa</th>
-                            <th className="p-3">Local</th>
-                            <th className="p-3">Equipe</th>
+                            <th className="p-4">Data</th>
+                            <th className="p-4">Competição</th>
+                            <th className="p-4">Equipe</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
                         {previewData.map((item, idx) => (
                             <tr key={idx} className="hover:bg-slate-800/50 transition-colors">
-                                <td className="p-3 font-mono text-slate-300">{item.date}</td>
-                                <td className="p-3">
-                                    <div className="font-bold text-slate-200">{item.championshipName}</div>
-                                    <div className="text-xs text-slate-500">{item.stageName}</div>
+                                <td className="p-4 font-mono text-slate-300">{item.date}</td>
+                                <td className="p-4">
+                                    <div className="font-bold text-slate-100 uppercase">{item.championshipName}</div>
+                                    <div className="text-[10px] text-red-500 font-black">{item.stageName} • {item.cityName}</div>
                                 </td>
-                                <td className="p-3 text-slate-300">
-                                    {item.cityName} <span className="text-xs bg-slate-800 border border-slate-700 px-1 rounded ml-1 text-slate-400">{item.stateCode}</span>
-                                </td>
-                                <td className="p-3 text-slate-400 max-w-xs truncate">
-                                    {item.memberNames.join(', ')}
+                                <td className="p-4">
+                                    <div className="flex flex-wrap gap-1">
+                                        {item.memberNames.map((n, i) => (
+                                            <span key={i} className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[10px]">{n}</span>
+                                        ))}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            <div className="p-4 bg-yellow-900/20 text-yellow-200 text-xs flex items-start gap-2 border-t border-yellow-800/30">
-                <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-yellow-500" />
-                <p>O sistema irá criar automaticamente novos Campeonatos, Cidades e Integrantes caso não encontre correspondência exata pelo nome.</p>
+            <div className="p-4 bg-yellow-900/10 text-yellow-500 text-[10px] font-bold uppercase flex items-center gap-2 border-t border-slate-800">
+                <AlertCircle size={14} />
+                Novos itens detectados serão adicionados automaticamente à base de dados.
             </div>
         </div>
       )}

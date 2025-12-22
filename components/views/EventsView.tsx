@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Event, AppData, Member, Vehicle } from '../../types';
-import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, CheckCircle2 } from 'lucide-react';
+import { Event, AppData, Member, Vehicle, Model, ModelForecast } from '../../types';
+import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, CheckCircle2, Package, Hash } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
@@ -43,6 +43,7 @@ const EventsView: React.FC<EventsViewProps> = ({
     stage: '',
     memberIds: [],
     vehicleIds: [],
+    modelForecast: [],
     confirmed: true
   });
 
@@ -69,6 +70,13 @@ const EventsView: React.FC<EventsViewProps> = ({
     }).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   };
 
+  const getModelForecastSummary = (forecast: ModelForecast[]) => {
+    return forecast.map(f => {
+        const m = data.models.find(mod => String(mod.id) === String(f.modelId));
+        return m ? `${m.model} (${f.quantity})` : 'N/A';
+    }).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  };
+
   const activeMembers = useMemo(() => 
     [...data.members]
       .filter(m => m.active !== false)
@@ -83,6 +91,12 @@ const EventsView: React.FC<EventsViewProps> = ({
     [data.vehicles]
   );
 
+  const alphabetizedModels = useMemo(() => 
+    [...data.models]
+      .sort((a, b) => String(a.model).localeCompare(String(b.model), 'pt-BR', { sensitivity: 'base' })),
+    [data.models]
+  );
+
   const filteredEvents = useMemo(() => 
     data.events
       .filter(event => {
@@ -94,6 +108,24 @@ const EventsView: React.FC<EventsViewProps> = ({
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     [data.events, filterChampionship, startDate, endDate]
   );
+
+  const totals = useMemo(() => {
+    const memberTotals: Record<string, number> = {};
+    const vehicleTotals: Record<string, number> = {};
+    const modelTotals: Record<string, number> = {};
+
+    activeMembers.forEach(m => memberTotals[m.id] = 0);
+    activeVehicles.forEach(v => vehicleTotals[v.id] = 0);
+    alphabetizedModels.forEach(mod => modelTotals[mod.id] = 0);
+
+    filteredEvents.forEach(event => {
+      event.memberIds.forEach(id => { if (memberTotals[id] !== undefined) memberTotals[id]++; });
+      event.vehicleIds.forEach(id => { if (vehicleTotals[id] !== undefined) vehicleTotals[id]++; });
+      event.modelForecast?.forEach(f => { if (modelTotals[f.modelId] !== undefined) modelTotals[f.modelId] += f.quantity; });
+    });
+
+    return { members: memberTotals, vehicles: vehicleTotals, models: modelTotals };
+  }, [filteredEvents, activeMembers, activeVehicles, alphabetizedModels]);
 
   useEffect(() => {
     if (initialEditingId) {
@@ -125,6 +157,7 @@ const EventsView: React.FC<EventsViewProps> = ({
         stage: event.stage,
         memberIds: event.memberIds || [],
         vehicleIds: event.vehicleIds || [],
+        modelForecast: event.modelForecast || [],
         confirmed: event.confirmed !== false
       });
     } else {
@@ -136,6 +169,7 @@ const EventsView: React.FC<EventsViewProps> = ({
         stage: 'Etapa 1',
         memberIds: [],
         vehicleIds: [],
+        modelForecast: [],
         confirmed: true
       });
     }
@@ -164,7 +198,7 @@ const EventsView: React.FC<EventsViewProps> = ({
     const htmlContent = `
       <html>
         <head>
-          <title>Matriz Analítica RBC - Frota e Equipe</title>
+          <title>Matriz Analítica RBC - Frota, Equipe e Modelos</title>
           <style>
             body { font-family: 'Inter', sans-serif; padding: 20px; font-size: 8px; color: #1e293b; margin: 0; }
             .toolbar { 
@@ -182,13 +216,13 @@ const EventsView: React.FC<EventsViewProps> = ({
             .content-wrapper { padding-top: 50px; }
             h1 { font-size: 16px; margin-bottom: 5px; color: #000; text-transform: uppercase; border-bottom: 2px solid #ef4444; display: inline-block; padding-bottom: 2px; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; vertical-align: middle; font-size: 7px; line-height: 1.2; }
-            th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; line-height: 1; }
+            th, td { border: 0.5px solid #cbd5e1; padding: 4px 2px; text-align: center; vertical-align: middle; font-size: 7px; line-height: 1; }
+            th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; font-size: 6px; color: #64748b; }
+            tfoot td { background-color: #f1f5f9; font-weight: 900; border-top: 2px solid #000; font-size: 7px; color: #000; }
             .date-cell-merged { border: 2px solid #64748b !important; font-weight: 900 !important; background-color: #f1f5f9 !important; color: #0f172a !important; font-size: 8px !important; }
             .event-info { text-align: left; padding-left: 5px; font-weight: 900; text-transform: uppercase; font-size: 7px; color: #64748b; background: #fff; line-height: 1.2; }
-            .checked { background-color: #ef4444 !important; color: #fff !important; font-weight: 900; font-size: 7px; line-height: 1.2; }
-            .total-row { background-color: #f8fafc; font-weight: 900; }
-            .footer { margin-top: 20px; font-size: 7px; color: #94a3b8; text-align: center; font-weight: bold; }
+            .checked { background-color: #ef4444 !important; color: #fff !important; font-weight: 900; font-size: 7px; }
+            .checked-qty { background-color: #3b82f6 !important; color: #fff !important; font-weight: 900; font-size: 7px; }
             tr.date-group-separator td { border-bottom: 2.5px solid #ef4444 !important; }
             @media print { .toolbar { display: none !important; } .content-wrapper { padding-top: 0 !important; } body { padding: 0; } }
           </style>
@@ -200,13 +234,13 @@ const EventsView: React.FC<EventsViewProps> = ({
           </div>
           <div class="content-wrapper">
             <h1>Matriz Analítica de Escala RBC</h1>
-            <p>Relatório de Logística e Disponibilidade • Equipe e Frota</p>
             <table>
               <thead>
                 <tr>
                   <th colspan="4" style="background: #fff; border: none;"></th>
-                  <th colspan="${activeMembers.length}" style="background: #f1f5f9; border-bottom: 2px solid #334155;">Equipe Técnica</th>
-                  <th colspan="${activeVehicles.length}" style="background: #fef2f2; border-bottom: 2px solid #ef4444;">Frota Operacional</th>
+                  <th colspan="${activeMembers.length}" style="background: #f1f5f9; border-bottom: 2px solid #334155;">Equipe (${activeMembers.length})</th>
+                  <th colspan="${activeVehicles.length}" style="background: #fef2f2; border-bottom: 2px solid #ef4444;">Frota (${activeVehicles.length})</th>
+                  <th colspan="${alphabetizedModels.length}" style="background: #eff6ff; border-bottom: 2px solid #3b82f6;">Modelos (${alphabetizedModels.length})</th>
                 </tr>
                 <tr>
                   <th style="width: 50px;">Data</th>
@@ -215,6 +249,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                   <th style="width: 80px;">Cidade</th>
                   ${activeMembers.map(m => `<th>${m.name.split(' ')[0]}</th>`).join('')}
                   ${activeVehicles.map(v => `<th>${v.plate}</th>`).join('')}
+                  ${alphabetizedModels.map(mod => `<th>${String(mod.model).substring(0,8)}</th>`).join('')}
                 </tr>
               </thead>
               <tbody>
@@ -238,23 +273,24 @@ const EventsView: React.FC<EventsViewProps> = ({
                         const isSelected = event.vehicleIds.some(id => String(id) === String(v.id));
                         return `<td class="${isSelected ? 'checked' : ''}">${isSelected ? 'X' : ''}</td>`;
                       }).join('')}
+                      ${alphabetizedModels.map(mod => {
+                        const forecastItem = event.modelForecast?.find(f => String(f.modelId) === String(mod.id));
+                        const qty = forecastItem?.quantity || 0;
+                        return `<td class="${qty > 0 ? 'checked-qty' : ''}">${qty > 0 ? qty : ''}</td>`;
+                      }).join('')}
                     </tr>
                   `;
                 }).join('')}
-                <tr class="total-row">
-                  <td colspan="4" style="text-align: right; padding-right: 10px;">CONTAGEM TOTAL</td>
-                  ${activeMembers.map(m => {
-                    const total = filteredEvents.filter(e => e.memberIds.some(id => String(id) === String(m.id))).length;
-                    return `<td>${total}</td>`;
-                  }).join('')}
-                  ${activeVehicles.map(v => {
-                    const total = filteredEvents.filter(e => e.vehicleIds.some(id => String(id) === String(v.id))).length;
-                    return `<td>${total}</td>`;
-                  }).join('')}
-                </tr>
               </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4" style="text-align: right; padding-right: 10px;">TOTAIS</td>
+                  ${activeMembers.map(m => `<td>${totals.members[m.id]}</td>`).join('')}
+                  ${activeVehicles.map(v => `<td>${totals.vehicles[v.id]}</td>`).join('')}
+                  ${alphabetizedModels.map(mod => `<td>${totals.models[mod.id]}</td>`).join('')}
+                </tr>
+              </tfoot>
             </table>
-            <div class="footer">Gerado em ${new Date().toLocaleString('pt-BR')} • RBC Motorsport System</div>
           </div>
         </body>
       </html>
@@ -268,70 +304,54 @@ const EventsView: React.FC<EventsViewProps> = ({
     try {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Matriz de Escala RBC');
-      const headerRow1 = worksheet.addRow(['', '', '', '', 'EQUIPE TÉCNICA', ...new Array(activeMembers.length - 1).fill(''), 'FROTA OPERACIONAL']);
+      worksheet.addRow([
+        '', '', '', '', 
+        `EQUIPE (${activeMembers.length})`, ...new Array(activeMembers.length - 1).fill(''), 
+        `FROTA (${activeVehicles.length})`, ...new Array(activeVehicles.length - 1).fill(''), 
+        `PREVISÃO DE MODELOS (${alphabetizedModels.length})`
+      ]);
       worksheet.mergeCells(1, 5, 1, 4 + activeMembers.length);
       worksheet.mergeCells(1, 5 + activeMembers.length, 1, 4 + activeMembers.length + activeVehicles.length);
-      const headerRow2 = worksheet.addRow([
+      worksheet.mergeCells(1, 5 + activeMembers.length + activeVehicles.length, 1, 4 + activeMembers.length + activeVehicles.length + alphabetizedModels.length);
+      
+      worksheet.addRow([
         'DATA', 
         'CAMPEONATO', 
         'ETAPA', 
         'CIDADE', 
         ...activeMembers.map(m => m.name.toUpperCase()), 
-        ...activeVehicles.map(v => v.plate.toUpperCase())
+        ...activeVehicles.map(v => v.plate.toUpperCase()),
+        ...alphabetizedModels.map(mod => String(mod.model).toUpperCase())
       ]);
-      [headerRow1, headerRow2].forEach((row, rowIndex) => {
-        row.eachCell((cell) => {
-          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowIndex === 0 ? 'FF1E293B' : 'FFEF4444' } };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        });
-      });
+
       filteredEvents.forEach(event => {
-        const rowData = [
+        worksheet.addRow([
           formatToBRDate(event.date),
           getChampName(event.championshipId),
           event.stage,
           getCityObj(event.cityId)?.name || '',
-          ...activeMembers.map(m => event.memberIds.some(id => String(id) === String(m.id)) ? 'CONVOCADO' : ''),
-          ...activeVehicles.map(v => event.vehicleIds.some(id => String(id) === String(v.id)) ? 'ESCALADO' : '')
-        ];
-        const row = worksheet.addRow(rowData);
-        row.eachCell((cell, colIndex) => {
-          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-          cell.alignment = { horizontal: colIndex <= 4 ? 'left' : 'center', vertical: 'middle' };
-          if (cell.value === 'CONVOCADO') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
-            cell.font = { color: { argb: 'FF166534' }, bold: true, size: 8 };
-          } else if (cell.value === 'ESCALADO') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
-            cell.font = { color: { argb: 'FF1E40AF' }, bold: true, size: 8 };
-          }
-        });
+          ...activeMembers.map(m => event.memberIds.some(id => String(id) === String(m.id)) ? 'X' : ''),
+          ...activeVehicles.map(v => event.vehicleIds.some(id => String(id) === String(v.id)) ? 'X' : ''),
+          ...alphabetizedModels.map(mod => {
+              const forecastItem = event.modelForecast?.find(f => String(f.modelId) === String(mod.id));
+              return forecastItem ? forecastItem.quantity : '';
+          })
+        ]);
       });
 
-      // Linha de totais no Excel
-      const totalRowData = [
-        'CONTAGEM TOTAL', '', '', '',
-        ...activeMembers.map(m => filteredEvents.filter(e => e.memberIds.some(id => String(id) === String(m.id))).length),
-        ...activeVehicles.map(v => filteredEvents.filter(e => e.vehicleIds.some(id => String(id) === String(v.id))).length)
-      ];
-      const totalRow = worksheet.addRow(totalRowData);
-      worksheet.mergeCells(totalRow.number, 1, totalRow.number, 4);
-      totalRow.eachCell((cell) => {
-        cell.font = { bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-        cell.alignment = { horizontal: 'center' };
-        cell.border = { top: { style: 'medium' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-      });
+      worksheet.addRow([
+        'TOTAIS', '', '', '',
+        ...activeMembers.map(m => totals.members[m.id]),
+        ...activeVehicles.map(v => totals.vehicles[v.id]),
+        ...alphabetizedModels.map(mod => totals.models[mod.id])
+      ]);
 
-      worksheet.columns.forEach((col, idx) => { col.width = idx < 4 ? 20 : 12; });
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `Matriz_RBC_${new Date().toISOString().split('T')[0]}.xlsx`;
+      anchor.download = `Matriz_RBC_Escala_${new Date().toISOString().split('T')[0]}.xlsx`;
       anchor.click();
       window.URL.revokeObjectURL(url);
     } catch (e) {
@@ -364,12 +384,28 @@ const EventsView: React.FC<EventsViewProps> = ({
     setFormData({ ...formData, vehicleIds: current });
   };
 
+  const handleModelQtyChange = (modelId: string | number, qty: number) => {
+      const current = [...(formData.modelForecast || [])];
+      const index = current.findIndex(f => String(f.modelId) === String(modelId));
+      
+      if (qty <= 0) {
+          if (index > -1) current.splice(index, 1);
+      } else {
+          if (index > -1) {
+              current[index].quantity = qty;
+          } else {
+              current.push({ modelId, quantity: qty });
+          }
+      }
+      setFormData({ ...formData, modelForecast: current });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100 italic uppercase">Calendário</h2>
-          <p className="text-slate-400">Gestão de etapas e convocações.</p>
+          <h2 className="text-2xl font-bold text-slate-100 italic uppercase tracking-tighter">Escala de Etapas</h2>
+          <p className="text-slate-400">Gestão operacional de competições.</p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
@@ -379,14 +415,14 @@ const EventsView: React.FC<EventsViewProps> = ({
                 className="flex-1 sm:flex-none justify-center bg-blue-700 hover:bg-blue-600 text-white border border-blue-800 disabled:opacity-50 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
             >
                 <TableIcon size={18} />
-                <span>Modo Analítico</span>
+                <span>Matriz Operacional</span>
             </button>
             <button
                 onClick={() => openModal()}
                 className="flex-1 sm:flex-none justify-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-bold shadow-lg shadow-red-900/20"
             >
                 <Plus size={18} />
-                <span>Novo Evento</span>
+                <span>Agendar Etapa</span>
             </button>
         </div>
       </div>
@@ -436,6 +472,7 @@ const EventsView: React.FC<EventsViewProps> = ({
             const isConfirmed = event.confirmed !== false;
             const memberNames = getMemberNames(event.memberIds || []);
             const vehiclePlates = getVehiclePlates(event.vehicleIds || []);
+            const modelSummary = getModelForecastSummary(event.modelForecast || []);
             const d = new Date(event.date + 'T12:00:00');
             return (
                 <div key={event.id} className="bg-slate-900 p-5 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 group hover:border-red-500/50 transition-colors">
@@ -459,11 +496,11 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 {data.cities.find(c => c.id === event.cityId)?.name}
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-800/50">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2 border-t border-slate-800/50">
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     <Users size={14} className="text-slate-600" />
-                                    Equipe Técnica ({memberNames.length})
+                                    Equipe ({memberNames.length})
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
                                     {memberNames.map((name, idx) => (
@@ -476,12 +513,25 @@ const EventsView: React.FC<EventsViewProps> = ({
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     <Truck size={14} className="text-slate-600" />
-                                    Logística de Frota ({vehiclePlates.length})
+                                    Frota ({vehiclePlates.length})
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
                                     {vehiclePlates.map((plate, idx) => (
                                         <span key={idx} className="px-2 py-0.5 bg-blue-900/10 border border-blue-900/20 text-blue-400 rounded-md text-[10px] font-mono font-bold">
                                             {plate}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <Package size={14} className="text-slate-600" />
+                                    Modelos ({modelSummary.length})
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {modelSummary.map((summary, idx) => (
+                                        <span key={idx} className="px-2 py-0.5 bg-green-900/10 border border-green-900/20 text-green-400 rounded-md text-[10px] font-bold uppercase tracking-tight">
+                                            {summary}
                                         </span>
                                     ))}
                                 </div>
@@ -510,10 +560,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                             <FileSpreadsheet className="text-red-500" />
                             Matriz Operacional RBC
                         </h3>
-                        <div className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-                           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                           {filteredEvents.length} Etapas em Exibição
-                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                           <button 
@@ -534,20 +580,36 @@ const EventsView: React.FC<EventsViewProps> = ({
                           </button>
                       </div>
                   </div>
-                  <div className="flex-1 overflow-auto bg-slate-950 p-0 relative">
-                        <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
+                  <div className="flex-1 overflow-auto bg-slate-950 p-0 relative custom-scrollbar">
+                        <table className="w-full text-left border-collapse table-auto min-w-max">
                             <thead className="sticky top-0 z-20 shadow-lg">
+                                <tr className="bg-slate-950 text-[9px] font-black text-slate-400 uppercase tracking-widest h-8 border-b border-slate-800">
+                                    <th className="sticky left-0 z-30 bg-slate-950 border-r border-slate-800 p-0">
+                                      <div className="w-[80px]"></div>
+                                    </th>
+                                    <th className="sticky left-[80px] z-30 bg-slate-950 border-r border-slate-800 p-0">
+                                      <div className="w-[200px]"></div>
+                                    </th>
+                                    <th colSpan={activeMembers.length} className="text-center border-r border-slate-800 bg-slate-900/50">Equipe (${activeMembers.length})</th>
+                                    <th colSpan={activeVehicles.length} className="text-center border-r border-slate-800 bg-red-950/30 text-red-500">Frota (${activeVehicles.length})</th>
+                                    <th colSpan={alphabetizedModels.length} className="text-center border-r border-slate-800 bg-blue-950/30 text-blue-400">Modelos (${alphabetizedModels.length})</th>
+                                </tr>
                                 <tr className="bg-slate-900 text-[10px] font-bold text-slate-500 uppercase tracking-widest h-10">
-                                    <th className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4 w-32">Etapa / Data</th>
-                                    <th className="sticky left-32 z-30 bg-slate-900 border-r border-slate-800 p-4 w-60">Competição / Local</th>
+                                    <th className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4 w-[80px] min-w-[80px] whitespace-nowrap">Data</th>
+                                    <th className="sticky left-[80px] z-30 bg-slate-900 border-r border-slate-800 p-4 w-[200px] min-w-[200px] whitespace-nowrap">Campeonato / Etapa</th>
                                     {activeMembers.map(m => (
-                                        <th key={m.id} className="p-2 text-center border-r border-slate-800 bg-slate-900 w-24 border-b-2 border-slate-800">
-                                            <div className="rotate-0 truncate" title={m.name}>{m.name.split(' ')[0]}</div>
+                                        <th key={m.id} className="p-2 text-center border-r border-slate-800 bg-slate-900 min-w-[80px] whitespace-nowrap">
+                                            {m.name.split(' ')[0]}
                                         </th>
                                     ))}
                                     {activeVehicles.map(v => (
-                                        <th key={v.id} className="p-2 text-center border-r border-slate-800 bg-red-900/10 text-red-400 w-24 border-b-2 border-red-900/30">
-                                            <div className="font-mono tracking-tighter truncate" title={v.plate}>{v.plate}</div>
+                                        <th key={v.id} className="p-2 text-center border-r border-slate-800 bg-red-900/10 text-red-400 min-w-[80px] whitespace-nowrap">
+                                            {v.plate}
+                                        </th>
+                                    ))}
+                                    {alphabetizedModels.map(mod => (
+                                        <th key={mod.id} className="p-2 text-center border-r border-slate-800 bg-blue-900/10 text-blue-400 min-w-[80px] whitespace-nowrap">
+                                            {String(mod.model).substring(0,8)}
                                         </th>
                                     ))}
                                 </tr>
@@ -557,28 +619,20 @@ const EventsView: React.FC<EventsViewProps> = ({
                                     const d = new Date(event.date + 'T12:00:00');
                                     return (
                                         <tr key={event.id} className="hover:bg-slate-900/50 group transition-colors h-14">
-                                            <td className="sticky left-0 z-10 bg-slate-950 border-r border-slate-800 p-4 text-sm font-bold">
-                                                <div className="flex flex-col">
-                                                    <span className="text-white">{d.getDate()}/{d.getMonth()+1}</span>
-                                                    <span className="text-[10px] text-slate-500 font-medium uppercase">{d.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
-                                                </div>
+                                            <td className="sticky left-0 z-10 bg-slate-950 border-r border-slate-800 p-4 text-sm font-bold w-[80px]">
+                                                {d.getDate()}/{d.getMonth()+1}
                                             </td>
-                                            <td className="sticky left-32 z-10 bg-slate-950 border-r border-slate-800 p-4">
-                                                <div className="flex flex-col truncate">
-                                                    <span className="text-xs font-bold text-slate-300 truncate">{getChampName(event.championshipId)}</span>
-                                                    <span className="text-[10px] text-red-500 font-black uppercase truncate tracking-tight">{event.stage}</span>
-                                                    <span className="text-[9px] text-slate-500 uppercase truncate">{data.cities.find(c => c.id === event.cityId)?.name}</span>
+                                            <td className="sticky left-[80px] z-10 bg-slate-950 border-r border-slate-800 p-4 w-[200px]">
+                                                <div className="flex flex-col truncate w-full">
+                                                    <span className="text-xs font-bold text-slate-300 truncate block">{getChampName(event.championshipId)}</span>
+                                                    <span className="text-[10px] text-red-500 font-black uppercase truncate block">{event.stage}</span>
                                                 </div>
                                             </td>
                                             {activeMembers.map(m => {
                                                 const isAssigned = event.memberIds.some(id => String(id) === String(m.id));
                                                 return (
                                                     <td key={m.id} className={`p-0 border-r border-slate-800 text-center ${isAssigned ? 'bg-slate-900/40' : ''}`}>
-                                                        {isAssigned && (
-                                                            <div className="flex items-center justify-center h-full">
-                                                                <CheckCircle2 size={20} className="text-green-500 shadow-sm" />
-                                                            </div>
-                                                        )}
+                                                        {isAssigned && <CheckCircle2 size={18} className="text-green-500 mx-auto" />}
                                                     </td>
                                                 );
                                             })}
@@ -586,40 +640,43 @@ const EventsView: React.FC<EventsViewProps> = ({
                                                 const isAssigned = event.vehicleIds.some(id => String(id) === String(v.id));
                                                 return (
                                                     <td key={v.id} className={`p-0 border-r border-slate-800 text-center ${isAssigned ? 'bg-red-950/20' : ''}`}>
-                                                        {isAssigned && (
-                                                            <div className="flex items-center justify-center h-full">
-                                                                <Truck size={20} className="text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]" />
-                                                            </div>
-                                                        )}
+                                                        {isAssigned && <Truck size={18} className="text-red-500 mx-auto" />}
+                                                    </td>
+                                                );
+                                            })}
+                                            {alphabetizedModels.map(mod => {
+                                                const forecast = event.modelForecast?.find(f => String(f.modelId) === String(mod.id));
+                                                const qty = forecast?.quantity || 0;
+                                                return (
+                                                    <td key={mod.id} className={`p-0 border-r border-slate-800 text-center font-black text-xs ${qty > 0 ? 'bg-blue-950/20 text-blue-400' : 'text-slate-800'}`}>
+                                                        {qty > 0 ? qty : ''}
                                                     </td>
                                                 );
                                             })}
                                         </tr>
                                     );
                                 })}
-                                {/* Linha de Totais */}
-                                <tr className="bg-slate-900/90 font-bold border-t-2 border-slate-800 h-14 sticky bottom-0 z-20">
-                                    <td colSpan={2} className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4 text-[10px] uppercase text-slate-400 text-right">
-                                        Contagem Total de Convocações
-                                    </td>
-                                    {activeMembers.map(m => {
-                                        const total = filteredEvents.filter(e => e.memberIds.some(id => String(id) === String(m.id))).length;
-                                        return (
-                                            <td key={m.id} className="text-center border-r border-slate-800 text-slate-200 text-sm font-black">
-                                                {total}
-                                            </td>
-                                        );
-                                    })}
-                                    {activeVehicles.map(v => {
-                                        const total = filteredEvents.filter(e => e.vehicleIds.some(id => String(id) === String(v.id))).length;
-                                        return (
-                                            <td key={v.id} className="text-center border-r border-slate-800 text-red-500 text-sm font-black">
-                                                {total}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
                             </tbody>
+                            <tfoot className="sticky bottom-0 z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.3)]">
+                                <tr className="bg-slate-900 text-[10px] font-black uppercase h-10 border-t border-slate-700">
+                                    <td className="sticky left-0 z-30 bg-slate-900 border-r border-slate-800 p-4" colSpan={2}>Somatórios Totais:</td>
+                                    {activeMembers.map(m => (
+                                        <td key={m.id} className="p-2 text-center border-r border-slate-800 bg-slate-900 text-white">
+                                            {totals.members[m.id]}
+                                        </td>
+                                    ))}
+                                    {activeVehicles.map(v => (
+                                        <td key={v.id} className="p-2 text-center border-r border-slate-800 bg-red-900/20 text-red-500">
+                                            {totals.vehicles[v.id]}
+                                        </td>
+                                    ))}
+                                    {alphabetizedModels.map(mod => (
+                                        <td key={mod.id} className="p-2 text-center border-r border-slate-800 bg-blue-900/20 text-blue-400">
+                                            {totals.models[mod.id]}
+                                        </td>
+                                    ))}
+                                </tr>
+                            </tfoot>
                         </table>
                   </div>
               </div>
@@ -628,7 +685,7 @@ const EventsView: React.FC<EventsViewProps> = ({
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50 sticky top-0 z-10">
               <h3 className="text-xl font-black text-white italic uppercase tracking-tight">{editingId ? 'Editar Evento' : 'Novo Evento'}</h3>
               <button onClick={closeModal} className="text-slate-500 hover:text-white transition-colors">
@@ -667,27 +724,15 @@ const EventsView: React.FC<EventsViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Convocação de Equipe</label>
-                    <span className="text-[10px] font-bold text-slate-600">{formData.memberIds.length} selecionados</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block border-b border-slate-800 pb-2">Equipe Técnica ({formData.memberIds.length})</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                     {activeMembers.map(member => {
                       const isSelected = formData.memberIds.some(mId => String(mId) === String(member.id));
                       return (
-                        <button
-                          key={member.id}
-                          type="button"
-                          onClick={() => toggleMember(member.id)}
-                          className={`p-2 rounded-lg border text-left transition-all ${
-                            isSelected
-                              ? 'bg-red-900/20 border-red-500/50 text-white font-bold'
-                              : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
-                          }`}
-                        >
-                          <span className="text-[11px]">{member.name}</span>
+                        <button key={member.id} type="button" onClick={() => toggleMember(member.id)} className={`p-2 rounded-lg border text-left text-[11px] transition-all ${isSelected ? 'bg-red-900/20 border-red-500/50 text-white font-bold' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
+                          {member.name}
                         </button>
                       );
                     })}
@@ -695,26 +740,46 @@ const EventsView: React.FC<EventsViewProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Logística de Frota</label>
-                    <span className="text-[10px] font-bold text-slate-600">{formData.vehicleIds.length} selecionados</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block border-b border-slate-800 pb-2">Logística de Frota ({formData.vehicleIds.length})</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                     {activeVehicles.map(vehicle => {
                       const isSelected = formData.vehicleIds.some(vId => String(vId) === String(vehicle.id));
                       return (
-                        <button
-                          key={vehicle.id}
-                          type="button"
-                          onClick={() => toggleVehicle(vehicle.id)}
-                          className={`p-2 rounded-lg border text-left transition-all ${
-                            isSelected
-                              ? 'bg-blue-900/20 border-blue-500/50 text-white font-bold'
-                              : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
-                          }`}
-                        >
-                          <span className="text-[11px] font-mono tracking-wider">{vehicle.plate}</span>
+                        <button key={vehicle.id} type="button" onClick={() => toggleVehicle(vehicle.id)} className={`p-2 rounded-lg border text-left text-[11px] font-mono transition-all ${isSelected ? 'bg-blue-900/20 border-blue-500/50 text-white font-bold' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
+                          {vehicle.plate}
                         </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block border-b border-slate-800 pb-2">Previsão de Equipamentos ({formData.modelForecast?.length || 0})</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    {alphabetizedModels.map(mod => {
+                      const forecast = formData.modelForecast?.find(f => String(f.modelId) === String(mod.id));
+                      const quantity = forecast?.quantity || 0;
+                      return (
+                        <div key={mod.id} className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${quantity > 0 ? 'bg-green-900/10 border-green-500/30' : 'bg-slate-900 border-slate-800'}`}>
+                          <span className={`flex-grow text-[11px] font-bold uppercase truncate ${quantity > 0 ? 'text-green-400' : 'text-slate-500'}`}>
+                            {mod.model}
+                          </span>
+                          <div className="relative w-16">
+                              <Hash className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-600" size={10} />
+                              <input 
+                                type="text"
+                                inputMode="numeric"
+                                pattern="\d*"
+                                className="w-full bg-slate-950 border border-slate-700 rounded p-1 pl-5 text-[10px] font-black text-white outline-none focus:ring-1 focus:ring-green-500 text-center"
+                                value={quantity || ''}
+                                placeholder="0"
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    handleModelQtyChange(mod.id, parseInt(val) || 0);
+                                }}
+                              />
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
@@ -722,7 +787,7 @@ const EventsView: React.FC<EventsViewProps> = ({
               </div>
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-800">
                 <button type="button" onClick={closeModal} className="px-6 py-3 text-slate-400 hover:bg-slate-800 rounded-xl font-bold text-xs uppercase transition-colors">Descartar</button>
-                <button type="submit" className="px-10 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase transition-all shadow-xl shadow-red-900/30">Salvar Evento</button>
+                <button type="submit" className="px-10 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase transition-all shadow-xl shadow-red-900/30">Salvar Etapa</button>
               </div>
             </form>
           </div>

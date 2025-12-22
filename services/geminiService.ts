@@ -3,10 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ParsedEventRaw } from "../types";
 
 // Initialize Gemini Client
-// Note: process.env.API_KEY is injected by the environment.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Fixed: Removed non-existent Schema import and applied Type enum as per guidelines
 const eventParsingSchema = {
   type: Type.ARRAY,
   items: {
@@ -29,22 +27,20 @@ const eventParsingSchema = {
 
 export const parseScheduleFromText = async (text: string): Promise<ParsedEventRaw[]> => {
   try {
-    // Updated model to gemini-3-flash-preview for text extraction tasks
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Extract racing event information from the following text into a structured JSON format. 
-      The text describes racing calendars.
+      Identify championships, stages, dates, cities and specifically extract mentioned team members.
       
       Text to process:
       ${text}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: eventParsingSchema,
-        temperature: 0.1, // Low temperature for factual extraction
+        temperature: 0.1,
       },
     });
 
-    // Directly access .text property as per guidelines (not a method)
     if (response.text) {
       return JSON.parse(response.text) as ParsedEventRaw[];
     }
@@ -57,14 +53,12 @@ export const parseScheduleFromText = async (text: string): Promise<ParsedEventRa
 
 export const getDashboardInsights = async (eventsCount: number, nextRace: string): Promise<string> => {
     try {
-        // Updated model to gemini-3-flash-preview for basic text tasks
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
             contents: `You are a racing team manager assistant. 
             We have ${eventsCount} total events scheduled. The next race is ${nextRace}.
             Give a very short, motivating one-sentence quote for the team dashboard.`
         });
-        // Directly access .text property as per guidelines
         return response.text || "Vamos acelerar rumo à vitória!";
     } catch (e) {
         return "Foco total na próxima etapa!";

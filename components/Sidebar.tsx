@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle, Settings, LogOut, Truck } from 'lucide-react';
+import { LayoutDashboard, Calendar, Trophy, Users, MapPin, PlusCircle, Settings, LogOut, Truck, Package } from 'lucide-react';
 import { ViewState } from '../types';
 import { signOut } from '../services/databaseService';
 
@@ -16,6 +16,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { id: 'championships', label: 'Campeonatos', icon: Trophy },
     { id: 'members', label: 'Integrantes', icon: Users },
     { id: 'vehicles', label: 'Veículos', icon: Truck },
+    { id: 'models', label: 'Modelos', icon: Package },
     { id: 'cities', label: 'Cidades', icon: MapPin },
   ];
 
@@ -23,11 +24,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     if (confirm("Deseja realmente sair do sistema?")) {
         try {
             await signOut();
-            // Força o recarregamento para limpar estados da memória e garantir redirecionamento
             window.location.reload();
         } catch (e) {
             console.error("Erro ao sair:", e);
-            // Mesmo com erro no servidor, forçamos o reload para tentar limpar o estado local
             window.location.reload();
         }
     }

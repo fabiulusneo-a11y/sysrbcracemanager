@@ -32,6 +32,18 @@ export interface Vehicle {
   status: boolean;
 }
 
+export interface Model {
+  id: string | number;
+  type: string;
+  brand: string;
+  model: string;
+}
+
+export interface ModelForecast {
+  modelId: string | number;
+  quantity: number;
+}
+
 export interface Event {
   id: string;
   championshipId: string;
@@ -40,6 +52,7 @@ export interface Event {
   stage: string; // e.g., "Etapa 1", "Final"
   memberIds: string[];
   vehicleIds: (string | number)[];
+  modelForecast: ModelForecast[]; // Alterado de modelIds para modelForecast
   confirmed: boolean; // Status for Confirmado/Indefinido
 }
 
@@ -52,7 +65,7 @@ export interface ParsedEventRaw {
   memberNames: string[];
 }
 
-export type ViewState = 'dashboard' | 'events' | 'championships' | 'cities' | 'members' | 'vehicles' | 'settings';
+export type ViewState = 'dashboard' | 'events' | 'championships' | 'cities' | 'members' | 'vehicles' | 'models' | 'settings';
 
 export interface AppData {
   cities: City[];
@@ -60,4 +73,5 @@ export interface AppData {
   members: Member[];
   events: Event[];
   vehicles: Vehicle[];
+  models: Model[];
 }
