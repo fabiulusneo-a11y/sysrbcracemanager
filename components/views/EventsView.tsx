@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Event, AppData, Member, Vehicle, Model, ModelForecast } from '../../types';
-import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, CheckCircle2, Package, Hash } from 'lucide-react';
+import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, CheckCircle2, Package, Hash, AlertTriangle } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import DeleteConfirmModal from '../modals/DeleteConfirmModal';
 
@@ -109,6 +109,26 @@ const EventsView: React.FC<EventsViewProps> = ({
     [data.events, filterChampionship, startDate, endDate]
   );
 
+  // Calcula quais recursos estão ocupados na data selecionada no formulário
+  // Normalizamos os IDs para string para evitar erros de comparação entre string e number
+  const busyResources = useMemo(() => {
+    if (!formData.date) return { members: new Set<string>(), vehicles: new Set<string>() };
+
+    const concurrentEvents = data.events.filter(e => 
+      e.date === formData.date && e.id !== editingId
+    );
+
+    const busyMembers = new Set<string>();
+    const busyVehicles = new Set<string>();
+
+    concurrentEvents.forEach(e => {
+      e.memberIds.forEach(id => busyMembers.add(String(id)));
+      e.vehicleIds.forEach(id => busyVehicles.add(String(id)));
+    });
+
+    return { members: busyMembers, vehicles: busyVehicles };
+  }, [data.events, formData.date, editingId]);
+
   const totals = useMemo(() => {
     const memberTotals: Record<string, number> = {};
     const vehicleTotals: Record<string, number> = {};
@@ -179,6 +199,50 @@ const EventsView: React.FC<EventsViewProps> = ({
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
+  };
+
+  const toggleMember = (id: string) => {
+    // Impede selecionar se estiver ocupado em outro evento na mesma data
+    if (busyResources.members.has(String(id))) return;
+
+    const current = [...formData.memberIds];
+    const index = current.findIndex(mId => String(mId) === String(id));
+    if (index > -1) {
+      current.splice(index, 1);
+    } else {
+      current.push(id);
+    }
+    setFormData({ ...formData, memberIds: current });
+  };
+
+  const toggleVehicle = (id: string | number) => {
+    // Impede selecionar se estiver ocupado em outro evento na mesma data
+    if (busyResources.vehicles.has(String(id))) return;
+
+    const current = [...formData.vehicleIds];
+    const index = current.findIndex(vId => String(vId) === String(id));
+    if (index > -1) {
+      current.splice(index, 1);
+    } else {
+      current.push(id);
+    }
+    setFormData({ ...formData, vehicleIds: current });
+  };
+
+  const handleModelQtyChange = (modelId: string | number, qty: number) => {
+      const current = [...(formData.modelForecast || [])];
+      const index = current.findIndex(f => String(f.modelId) === String(modelId));
+      
+      if (qty <= 0) {
+          if (index > -1) current.splice(index, 1);
+      } else {
+          if (index > -1) {
+              current[index].quantity = qty;
+          } else {
+              current.push({ modelId, quantity: qty });
+          }
+      }
+      setFormData({ ...formData, modelForecast: current });
   };
 
   const handlePrintAnalytical = () => {
@@ -360,44 +424,6 @@ const EventsView: React.FC<EventsViewProps> = ({
     } finally {
       setIsExporting(false);
     }
-  };
-
-  const toggleMember = (id: string) => {
-    const current = [...formData.memberIds];
-    const index = current.findIndex(mId => String(mId) === String(id));
-    if (index > -1) {
-      current.splice(index, 1);
-    } else {
-      current.push(id);
-    }
-    setFormData({ ...formData, memberIds: current });
-  };
-
-  const toggleVehicle = (id: string | number) => {
-    const current = [...formData.vehicleIds];
-    const index = current.findIndex(vId => String(vId) === String(id));
-    if (index > -1) {
-      current.splice(index, 1);
-    } else {
-      current.push(id);
-    }
-    setFormData({ ...formData, vehicleIds: current });
-  };
-
-  const handleModelQtyChange = (modelId: string | number, qty: number) => {
-      const current = [...(formData.modelForecast || [])];
-      const index = current.findIndex(f => String(f.modelId) === String(modelId));
-      
-      if (qty <= 0) {
-          if (index > -1) current.splice(index, 1);
-      } else {
-          if (index > -1) {
-              current[index].quantity = qty;
-          } else {
-              current.push({ modelId, quantity: qty });
-          }
-      }
-      setFormData({ ...formData, modelForecast: current });
   };
 
   return (
@@ -707,7 +733,10 @@ const EventsView: React.FC<EventsViewProps> = ({
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Data</label>
-                  <input type="date" required className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                  <input type="date" required className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]" value={formData.date} onChange={e => {
+                    const newDate = e.target.value;
+                    setFormData({ ...formData, date: newDate });
+                  }} />
                 </div>
                 <div className="col-span-1 md:col-span-2">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Cidade / Local</label>
@@ -730,9 +759,29 @@ const EventsView: React.FC<EventsViewProps> = ({
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                     {activeMembers.map(member => {
                       const isSelected = formData.memberIds.some(mId => String(mId) === String(member.id));
+                      const isBusy = busyResources.members.has(String(member.id));
+                      
                       return (
-                        <button key={member.id} type="button" onClick={() => toggleMember(member.id)} className={`p-2 rounded-lg border text-left text-[11px] transition-all ${isSelected ? 'bg-red-900/20 border-red-500/50 text-white font-bold' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                          {member.name}
+                        <button 
+                            key={member.id} 
+                            type="button" 
+                            onClick={() => toggleMember(member.id)} 
+                            disabled={isBusy && !isSelected}
+                            className={`p-2 rounded-lg border text-left text-[11px] transition-all flex items-center justify-between group ${
+                                isSelected 
+                                    ? 'bg-red-900/20 border-red-500/50 text-white font-bold' 
+                                    : isBusy 
+                                        ? 'bg-slate-950 border-slate-800 text-slate-700 cursor-not-allowed opacity-50' 
+                                        : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600'
+                            }`}
+                        >
+                          <span className={isBusy && !isSelected ? 'line-through' : ''}>{member.name}</span>
+                          {isBusy && !isSelected && (
+                            <div className="flex items-center gap-1 text-[8px] font-black text-red-900 uppercase">
+                                <AlertTriangle size={10} />
+                                Ocupado
+                            </div>
+                          )}
                         </button>
                       );
                     })}
@@ -744,9 +793,29 @@ const EventsView: React.FC<EventsViewProps> = ({
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                     {activeVehicles.map(vehicle => {
                       const isSelected = formData.vehicleIds.some(vId => String(vId) === String(vehicle.id));
+                      const isBusy = busyResources.vehicles.has(String(vehicle.id));
+
                       return (
-                        <button key={vehicle.id} type="button" onClick={() => toggleVehicle(vehicle.id)} className={`p-2 rounded-lg border text-left text-[11px] font-mono transition-all ${isSelected ? 'bg-blue-900/20 border-blue-500/50 text-white font-bold' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                          {vehicle.plate}
+                        <button 
+                            key={vehicle.id} 
+                            type="button" 
+                            onClick={() => toggleVehicle(vehicle.id)} 
+                            disabled={isBusy && !isSelected}
+                            className={`p-2 rounded-lg border text-left text-[11px] font-mono transition-all flex items-center justify-between ${
+                                isSelected 
+                                    ? 'bg-blue-900/20 border-blue-500/50 text-white font-bold' 
+                                    : isBusy
+                                        ? 'bg-slate-950 border-slate-800 text-slate-700 cursor-not-allowed opacity-50'
+                                        : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600'
+                            }`}
+                        >
+                          <span className={isBusy && !isSelected ? 'line-through' : ''}>{vehicle.plate}</span>
+                          {isBusy && !isSelected && (
+                            <div className="flex items-center gap-1 text-[8px] font-black text-red-900 uppercase">
+                                <AlertTriangle size={10} />
+                                Ocupado
+                            </div>
+                          )}
                         </button>
                       );
                     })}
