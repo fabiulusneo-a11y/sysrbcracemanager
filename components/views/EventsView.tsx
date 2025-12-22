@@ -369,23 +369,27 @@ const EventsView: React.FC<EventsViewProps> = ({
         </div>
       </div>
 
-      <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-4 items-center shadow-sm">
-        <div className="flex items-center gap-2 text-slate-500 mr-2">
+      <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center shadow-sm">
+        <div className="flex items-center gap-2 text-slate-500 mr-2 shrink-0">
             <Filter size={18} />
             <span className="text-xs font-bold uppercase tracking-widest">Filtros</span>
         </div>
-        <select value={filterChampionship} onChange={(e) => setFilterChampionship(e.target.value)} className="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none w-full md:w-auto min-w-[200px] focus:ring-1 focus:ring-red-500 transition-all">
+        <select 
+            value={filterChampionship} 
+            onChange={(e) => setFilterChampionship(e.target.value)} 
+            className="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none w-full lg:w-72 focus:ring-1 focus:ring-red-500 transition-all shrink-0"
+        >
             <option value="">Todos Campeonatos</option>
             {data.championships.map(c => ( <option key={c.id} value={c.id}>{c.name}</option> ))}
         </select>
-        <div className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-2 w-full lg:flex-1 lg:max-w-md">
             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-2.5 text-sm [color-scheme:dark] w-full focus:ring-1 focus:ring-red-500 transition-all" />
-            <span className="text-slate-600 font-bold text-xs uppercase">à</span>
+            <span className="text-slate-600 font-bold text-xs uppercase shrink-0">à</span>
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-2.5 text-sm [color-scheme:dark] w-full focus:ring-1 focus:ring-red-500 transition-all" />
         </div>
         <button 
             onClick={clearFilters}
-            className="flex items-center gap-2 px-4 py-2.5 bg-red-900/10 hover:bg-red-900/20 text-red-500 rounded-lg text-xs font-black uppercase tracking-widest transition-all border border-red-900/20"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-900/10 hover:bg-red-900/20 text-red-500 rounded-lg text-xs font-black uppercase tracking-widest transition-all border border-red-900/20 w-full lg:w-auto shrink-0"
         >
             <XCircle size={14} />
             Limpar Filtros
