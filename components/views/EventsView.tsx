@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Event, AppData, Member, Vehicle, Model, ModelForecast } from '../../types';
 import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, CheckCircle2, Package, Hash, AlertTriangle, Trophy, Calendar as CalendarIcon, Info } from 'lucide-react';
@@ -46,6 +45,19 @@ const EventsView: React.FC<EventsViewProps> = ({
   const [filterChampionship, setFilterChampionship] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  // Lógica de Recursos Ocupados na Data Selecionada
+  const occupiedResources = useMemo(() => {
+    const dateToSearch = formData.date;
+    const otherEvents = data.events.filter(e => 
+      e.date === dateToSearch && String(e.id) !== String(editingId)
+    );
+
+    return {
+      members: otherEvents.flatMap(e => e.memberIds.map(String)),
+      vehicles: otherEvents.flatMap(e => e.vehicleIds.map(String))
+    };
+  }, [data.events, formData.date, editingId]);
 
   const clearFilters = () => {
     setFilterChampionship('');
@@ -286,8 +298,11 @@ const EventsView: React.FC<EventsViewProps> = ({
   };
 
   const toggleMember = (id: string) => {
+    const idStr = String(id);
+    // Bloquear se estiver ocupado
+    if (occupiedResources.members.includes(idStr)) return;
+
     setFormData(prev => {
-        const idStr = String(id);
         const exists = prev.memberIds.some(mid => String(mid) === idStr);
         return {
             ...prev,
@@ -299,8 +314,11 @@ const EventsView: React.FC<EventsViewProps> = ({
   };
 
   const toggleVehicle = (id: string | number) => {
+    const idStr = String(id);
+    // Bloquear se estiver ocupado
+    if (occupiedResources.vehicles.includes(idStr)) return;
+
     setFormData(prev => {
-        const idStr = String(id);
         const exists = prev.vehicleIds.some(vid => String(vid) === idStr);
         return {
             ...prev,
@@ -662,7 +680,10 @@ const EventsView: React.FC<EventsViewProps> = ({
                             <p className="col-span-full text-center text-slate-600 italic text-sm py-4">Nenhum integrante ativo para escalar.</p>
                         ) : (
                             activeMembers.map(member => {
-                                const isSelected = formData.memberIds.some(mid => String(mid) === String(member.id));
+                                const idStr = String(member.id);
+                                const isSelected = formData.memberIds.some(mid => String(mid) === idStr);
+                                const isOccupied = occupiedResources.members.includes(idStr);
+                                
                                 return (
                                     <div 
                                         key={member.id}
@@ -670,15 +691,20 @@ const EventsView: React.FC<EventsViewProps> = ({
                                         className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
                                             isSelected 
                                                 ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20' 
-                                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'
+                                                : isOccupied
+                                                    ? 'bg-slate-900/50 border-red-900/30 text-slate-600 cursor-not-allowed opacity-60 grayscale'
+                                                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'
                                         }`}
                                     >
                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-800'}`}>
-                                            <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />
+                                            {isOccupied ? <X size={10} className="text-red-500" /> : <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />}
                                         </div>
-                                        <div className="overflow-hidden">
+                                        <div className="overflow-hidden flex-grow">
                                             <p className="text-[11px] font-black truncate uppercase tracking-tight">{member.name}</p>
-                                            <p className={`text-[8px] font-bold uppercase ${isSelected ? 'text-blue-100' : 'text-slate-600'}`}>{member.role}</p>
+                                            <div className="flex items-center justify-between">
+                                                <p className={`text-[8px] font-bold uppercase ${isSelected ? 'text-blue-100' : 'text-slate-600'}`}>{member.role}</p>
+                                                {isOccupied && <span className="text-[7px] bg-red-900/20 text-red-500 px-1 rounded font-black">OCUPADO</span>}
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -698,7 +724,10 @@ const EventsView: React.FC<EventsViewProps> = ({
                             <p className="col-span-full text-center text-slate-600 italic text-sm py-4">Nenhum veículo disponível na frota.</p>
                         ) : (
                             activeVehicles.map(vehicle => {
-                                const isSelected = formData.vehicleIds.some(vid => String(vid) === String(vehicle.id));
+                                const idStr = String(vehicle.id);
+                                const isSelected = formData.vehicleIds.some(vid => String(vid) === idStr);
+                                const isOccupied = occupiedResources.vehicles.includes(idStr);
+                                
                                 return (
                                     <div 
                                         key={vehicle.id}
@@ -706,15 +735,20 @@ const EventsView: React.FC<EventsViewProps> = ({
                                         className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
                                             isSelected 
                                                 ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' 
-                                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'
+                                                : isOccupied
+                                                    ? 'bg-slate-900/50 border-red-900/30 text-slate-600 cursor-not-allowed opacity-60 grayscale'
+                                                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'
                                         }`}
                                     >
                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-800'}`}>
-                                            <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />
+                                            {isOccupied ? <X size={10} className="text-red-500" /> : <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />}
                                         </div>
-                                        <div>
+                                        <div className="flex-grow">
                                             <p className="text-xs font-black uppercase tracking-widest">{vehicle.plate}</p>
-                                            <p className={`text-[8px] font-bold uppercase ${isSelected ? 'text-purple-100' : 'text-slate-600'}`}>{vehicle.brand} {vehicle.model}</p>
+                                            <div className="flex items-center justify-between">
+                                                <p className={`text-[8px] font-bold uppercase ${isSelected ? 'text-purple-100' : 'text-slate-600'}`}>{vehicle.brand} {vehicle.model}</p>
+                                                {isOccupied && <span className="text-[7px] bg-red-900/20 text-red-500 px-1 rounded font-black">EM USO</span>}
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -764,8 +798,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                 <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 flex items-start gap-4 mt-8">
                     <Info size={24} className="text-blue-500 shrink-0 mt-0.5" />
                     <p className="text-[10px] text-slate-500 font-bold uppercase leading-relaxed tracking-wider">
-                        Certifique-se de que todas as escalas de equipe e frota foram revisadas. 
-                        A matriz operacional será atualizada imediatamente após o salvamento.
+                        O sistema detecta automaticamente se um integrante ou veículo já está escalado em outro evento na mesma data. Itens ocupados são bloqueados para garantir a consistência operacional.
                     </p>
                 </div>
             </form>
