@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Event, AppData, Member, Vehicle, Model, ModelForecast } from '../../types';
 import { Plus, Trash2, Edit2, MapPin, Users, Check, Filter, XCircle, FileSpreadsheet, AlertCircle, Download, Table as TableIcon, Loader2, X, Printer, Truck, CheckCircle2, Package, Hash, AlertTriangle, Trophy, Calendar as CalendarIcon, Info } from 'lucide-react';
@@ -46,7 +47,6 @@ const EventsView: React.FC<EventsViewProps> = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Lógica de Recursos Ocupados na Data Selecionada
   const occupiedResources = useMemo(() => {
     const dateToSearch = formData.date;
     const otherEvents = data.events.filter(e => 
@@ -137,83 +137,205 @@ const EventsView: React.FC<EventsViewProps> = ({
   const handlePrintAnalytical = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert("Habilite pop-ups para imprimir.");
+      alert("Habilite pop-ups para visualizar o relatório.");
       return;
     }
 
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2);
+    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+    const dd = now.getDate().toString().padStart(2, '0');
+    const hh = now.getHours().toString().padStart(2, '0');
+    const min = now.getMinutes().toString().padStart(2, '0');
+    const timestamp = `${yy}${mm}${dd}-${hh}${min}`;
+    const fullFileName = `Matriz Operacional RBC ${timestamp}`;
+
     const htmlContent = `
-      <html>
-        <head>
-          <title>Matriz Analítica RBC</title>
-          <style>
-            @page { size: A4 landscape; margin: 1cm; }
-            body { font-family: sans-serif; padding: 20px; color: #000; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 8px; }
-            th { background-color: #f3f4f6; font-weight: bold; }
-            .text-left { text-align: left; }
-            .checked { background-color: #fee2e2; color: #dc2626; font-weight: bold; }
-            .total-row { background-color: #f9fafb; font-weight: bold; }
-            .no-print { margin-bottom: 20px; }
-            @media print { .no-print { display: none; } }
-          </style>
-        </head>
-        <body>
-          <div class="no-print">
-            <button onclick="window.print()">Imprimir</button>
-            <button onclick="window.close()">Fechar</button>
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>RBC MOTORSPORT - MATRIZ OPERACIONAL</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        <style>
+          @page { size: A4 landscape; margin: 5mm; }
+          
+          /* Reset e Base */
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #000; font-size: 9px; line-height: 1.1; }
+          
+          /* Container Centralizado */
+          .landscape-wrapper { 
+            background: #fff; 
+            width: fit-content; 
+            min-width: 1000px;
+            margin: 20px auto; 
+            padding: 20px; 
+            position: relative;
+            text-align: center;
+          }
+          
+          /* Barra de Ferramentas */
+          .print-toolbar {
+            position: fixed; top: 0; left: 0; right: 0; background: #0f172a; color: #fff; padding: 10px 24px;
+            display: flex; justify-content: space-between; align-items: center; z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+          }
+          .btn {
+            border: none; padding: 8px 16px; border-radius: 6px;
+            font-weight: 800; font-size: 10px; cursor: pointer; text-transform: uppercase;
+            transition: all 0.2s ease; display: flex; align-items: center; gap: 8px;
+          }
+          .btn-print { background: #dc2626; color: #fff; }
+          .btn-pdf { background: #475569; color: #fff; cursor: not-allowed; opacity: 0.6; } /* Cinza e desabilitado */
+          .btn-close { background: #475569; color: #fff; }
+
+          /* Layout do Título RBC */
+          .header-main { margin-bottom: 10px; text-align: left; display: flex; justify-content: space-between; align-items: flex-end; }
+          .header-main h1 { margin: 0; font-size: 32px; font-weight: 900; text-transform: uppercase; letter-spacing: -2px; line-height: 0.8;}
+          .header-subtitle { font-weight: 800; font-size: 11px; text-transform: uppercase; margin-top: 5px; color: #000; }
+          .meta-info { text-align: right; font-size: 9px; font-weight: 700; color: #000; line-height: 1.2; }
+
+          /* Tabela Principal: Estilo Excel */
+          table { border-collapse: collapse; border: 2.5px solid #000; margin: 0 auto; table-layout: auto; }
+          th, td { border: 1.2px solid #000; padding: 4px 3px; text-align: center; vertical-align: middle; color: #000; }
+          
+          /* Seções Coloridas Exatas */
+          .section-info { background-color: #d9e2f3 !important; font-weight: 900; height: 30px; }
+          .section-equipe { background-color: #e2f0d9 !important; font-weight: 900; }
+          .section-frota { background-color: #ffffff !important; font-weight: 900; }
+          .section-modelos { background-color: #fff2cc !important; font-weight: 900; }
+
+          /* Cabeçalhos Verticais Compactos (Restaurado para writing-mode original) */
+          .vertical-header {
+            height: 110px;
+            width: 26px;
+            padding: 0;
+            position: relative;
+          }
+          .vertical-text {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            display: inline-block;
+            white-space: nowrap;
+            font-size: 9px;
+            font-weight: 800;
+            text-align: left;
+            padding-left: 4px;
+          }
+
+          /* Marcação "1" Vermelho Negrito */
+          .mark-cell { color: #ff0000 !important; font-weight: 900; font-size: 11px; }
+          
+          /* Linha de Totais */
+          .total-row { background-color: #ffffff !important; font-weight: 900; font-size: 10px; }
+          .total-row td { border-top: 2.5px solid #000; padding: 6px 3px; }
+
+          /* Footer */
+          .footer-doc { margin-top: 15px; border-top: 1.2px solid #000; padding-top: 10px; text-align: center; font-size: 8px; font-weight: 700; letter-spacing: 2px; }
+
+          @media print {
+            .print-toolbar { display: none !important; }
+            body { background: #fff !important; }
+            .landscape-wrapper { box-shadow: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+            table { width: 100% !important; }
+          }
+        </style>
+        <script>
+          // downloadPDF desabilitado temporariamente para ajustes
+          function downloadPDF() {
+            alert('A exportação direta para PDF está em manutenção. Por favor, utilize a opção "Imprimir" e selecione "Salvar como PDF" no seu navegador.');
+          }
+        </script>
+      </head>
+      <body>
+        <div class="print-toolbar">
+          <div style="font-weight: 900; font-size: 14px; text-transform: uppercase;">Relatório Matriz Analítica RBC</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-close" onclick="window.close()">Fechar</button>
+            <button class="btn btn-pdf" onclick="downloadPDF()">PDF (.pdf)</button>
+            <button class="btn btn-print" onclick="window.print()">Imprimir</button>
           </div>
-          <h2 style="text-align: center; margin: 0;">RBC MOTORSPORT - MATRIZ OPERACIONAL</h2>
+        </div>
+        <div style="height: 60px;"></div>
+
+        <div id="capture-area" class="landscape-wrapper">
+          <div class="header-main">
+            <div>
+              <h1>RBC MOTORSPORT</h1>
+              <div class="header-subtitle">MATRIZ OPERACIONAL DE ESCALA E LOGÍSTICA</div>
+            </div>
+            <div class="meta-info">
+              DOCUMENTO GERADO EM<br>
+              <span style="font-size: 11px;">${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+            </div>
+          </div>
+
           <table>
             <thead>
               <tr>
-                <th colspan="4">INFORMAÇÕES</th>
-                <th colspan="${activeMembers.length}">EQUIPE</th>
-                <th colspan="${activeVehicles.length}">FROTA</th>
-                <th colspan="${alphabetizedModels.length}">MODELOS</th>
+                <th colspan="4" class="section-info">INFORMAÇÕES DO EVENTO</th>
+                <th colspan="${activeMembers.length}" class="section-equipe">EQUIPE TÉCNICA</th>
+                <th colspan="${activeVehicles.length}" class="section-frota">FROTA</th>
+                <th colspan="${alphabetizedModels.length}" class="section-modelos">MODELOS / EQUIPAMENTOS</th>
               </tr>
               <tr>
-                <th>DATA</th>
-                <th>CAMPEONATO</th>
-                <th>ETAPA</th>
-                <th>CIDADE</th>
-                ${activeMembers.map(m => `<th>${m.name}</th>`).join('')}
-                ${activeVehicles.map(v => `<th>${v.plate}</th>`).join('')}
-                ${alphabetizedModels.map(mod => `<th>${mod.model}</th>`).join('')}
+                <th style="min-width: 60px;">DATA</th>
+                <th style="min-width: 120px; text-align: left; padding-left: 8px;">CAMPEONATO</th>
+                <th style="min-width: 50px;">ETAPA</th>
+                <th style="min-width: 90px; text-align: left; padding-left: 8px;">CIDADE</th>
+                ${activeMembers.map(m => `
+                  <th class="vertical-header">
+                    <span class="vertical-text">${m.name}</span>
+                  </th>`).join('')}
+                ${activeVehicles.map(v => `
+                  <th class="vertical-header">
+                    <span class="vertical-text">${v.plate}</span>
+                  </th>`).join('')}
+                ${alphabetizedModels.map(mod => `
+                  <th class="vertical-header">
+                    <span class="vertical-text">${mod.model}</span>
+                  </th>`).join('')}
               </tr>
             </thead>
             <tbody>
               ${filteredEvents.map(event => `
                 <tr>
-                  <td>${formatToBRDate(event.date)}</td>
-                  <td class="text-left">${getChampName(event.championshipId)}</td>
-                  <td>${event.stage}</td>
-                  <td class="text-left">${getCityObj(event.cityId)?.name || ''}</td>
+                  <td style="font-weight: 800; font-size: 10px;">${formatToBRDate(event.date)}</td>
+                  <td style="text-align: left; padding-left: 8px; font-weight: 700;">${getChampName(event.championshipId)}</td>
+                  <td style="font-weight: 600;">${event.stage}</td>
+                  <td style="text-align: left; padding-left: 8px;">${getCityObj(event.cityId)?.name || ''}</td>
                   ${activeMembers.map(m => {
-                    const active = event.memberIds.some(id => String(id) === String(m.id));
-                    return `<td class="${active ? 'checked' : ''}">${active ? '1' : ''}</td>`;
+                    const has = event.memberIds.some(id => String(id) === String(m.id));
+                    return `<td class="${has ? 'mark-cell' : ''}">${has ? '1' : ''}</td>`;
                   }).join('')}
                   ${activeVehicles.map(v => {
-                    const active = event.vehicleIds.some(id => String(id) === String(v.id));
-                    return `<td class="${active ? 'checked' : ''}">${active ? '1' : ''}</td>`;
+                    const has = event.vehicleIds.some(id => String(id) === String(v.id));
+                    return `<td class="${has ? 'mark-cell' : ''}">${has ? '1' : ''}</td>`;
                   }).join('')}
                   ${alphabetizedModels.map(mod => {
                     const f = event.modelForecast?.find(f => String(f.modelId) === String(mod.id));
-                    return `<td>${f?.quantity || ''}</td>`;
+                    return `<td style="font-weight: 800;">${f?.quantity || ''}</td>`;
                   }).join('')}
                 </tr>
               `).join('')}
             </tbody>
             <tfoot>
               <tr class="total-row">
-                <td colspan="4" style="text-align: right;">TOTAIS:</td>
+                <td colspan="4" style="text-align: right; padding-right: 15px; text-transform: uppercase;">TOTAIS DE UTILIZAÇÃO:</td>
                 ${activeMembers.map(m => `<td>${totals.members[m.id]}</td>`).join('')}
                 ${activeVehicles.map(v => `<td>${totals.vehicles[v.id]}</td>`).join('')}
                 ${alphabetizedModels.map(mod => `<td>${totals.models[mod.id]}</td>`).join('')}
               </tr>
             </tfoot>
           </table>
-        </body>
+
+          <div class="footer-doc">
+            RBC MOTORSPORT MANAGEMENT SYSTEM • RELATÓRIO DE ALTA DENSIDADE • GERADO DIGITALMENTE
+          </div>
+        </div>
+      </body>
       </html>
     `;
     printWindow.document.write(htmlContent);
@@ -299,7 +421,6 @@ const EventsView: React.FC<EventsViewProps> = ({
 
   const toggleMember = (id: string) => {
     const idStr = String(id);
-    // Bloquear se estiver ocupado
     if (occupiedResources.members.includes(idStr)) return;
 
     setFormData(prev => {
@@ -315,7 +436,6 @@ const EventsView: React.FC<EventsViewProps> = ({
 
   const toggleVehicle = (id: string | number) => {
     const idStr = String(id);
-    // Bloquear se estiver ocupado
     if (occupiedResources.vehicles.includes(idStr)) return;
 
     setFormData(prev => {
@@ -333,10 +453,10 @@ const EventsView: React.FC<EventsViewProps> = ({
     const qty = Math.max(0, value);
     setFormData(prev => {
         const idStr = String(modelId);
-        const exists = prev.modelForecast.some(f => String(f.modelId) === idStr);
+        const exists = prev.modelForecast.some(f => String(f.modelId) === String(idStr));
         
         if (qty === 0) {
-            return { ...prev, modelForecast: prev.modelForecast.filter(f => String(f.modelId) !== idStr) };
+            return { ...prev, modelForecast: prev.modelForecast.filter(f => String(f.modelId) !== String(idStr)) };
         }
         
         if (!exists) {
@@ -345,7 +465,7 @@ const EventsView: React.FC<EventsViewProps> = ({
         
         return {
             ...prev,
-            modelForecast: prev.modelForecast.map(f => String(f.modelId) === idStr ? { ...f, quantity: qty } : f)
+            modelForecast: prev.modelForecast.map(f => String(f.modelId) === String(idStr) ? { ...f, quantity: qty } : f)
         };
     });
   };
@@ -440,9 +560,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                             </div>
                         </div>
 
-                        {/* Detalhes de Escala (Equipe, Frota, Modelos) */}
                         <div className="pt-4 border-t border-slate-800/50 flex flex-wrap gap-6">
-                            {/* Equipe */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                     <Users size={12} />
@@ -464,7 +582,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 </div>
                             </div>
 
-                            {/* Frota */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                     <Truck size={12} />
@@ -486,7 +603,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                                 </div>
                             </div>
 
-                            {/* Modelos */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                     <Package size={12} />
@@ -545,9 +661,9 @@ const EventsView: React.FC<EventsViewProps> = ({
                                     <th className="p-2 border border-slate-700 bg-slate-900 sticky left-[40px] z-40">CAMP.</th>
                                     <th className="p-2 border border-slate-700 bg-slate-900">ETAPA</th>
                                     <th className="p-2 border border-slate-700 bg-slate-900">CIDADE</th>
-                                    {activeMembers.map(m => <th key={m.id} className="p-2 border border-slate-700 min-w-[80px]">{m.name}</th>)}
-                                    {activeVehicles.map(v => <th key={v.id} className="p-2 border border-slate-700 min-w-[80px]">{v.plate}</th>)}
-                                    {alphabetizedModels.map(mod => <th key={mod.id} className="p-2 border border-slate-700 min-w-[80px]">{mod.model}</th>)}
+                                    {activeMembers.map(m => <th key={m.id} className="p-2 border border-slate-700 min-w-[80px] text-[8px] uppercase">{m.name}</th>)}
+                                    {activeVehicles.map(v => <th key={v.id} className="p-2 border border-slate-700 min-w-[80px] text-[8px] uppercase">{v.plate}</th>)}
+                                    {alphabetizedModels.map(mod => <th key={mod.id} className="p-2 border border-slate-700 min-w-[80px] text-[8px] uppercase">{mod.model}</th>)}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800 text-slate-300">
@@ -567,7 +683,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                                         })}
                                         {alphabetizedModels.map(mod => {
                                             const f = event.modelForecast?.find(f => String(f.modelId) === String(mod.id));
-                                            return <td key={mod.id} className="border border-slate-800">{f?.quantity || ''}</td>;
+                                            return <td key={mod.id} className="border border-slate-800 font-bold">{f?.quantity || ''}</td>;
                                         })}
                                     </tr>
                                 ))}
@@ -588,8 +704,7 @@ const EventsView: React.FC<EventsViewProps> = ({
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95">
-            {/* Modal Header */}
+          <div className="bg-slate-900 rounded-2xl border border-slate-800 w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-800 bg-slate-950/50 flex justify-between items-center">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-900/20">
@@ -603,10 +718,7 @@ const EventsView: React.FC<EventsViewProps> = ({
                 <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-500 hover:text-white transition-colors"><X size={24} /></button>
             </div>
 
-            {/* Modal Body (Scrollable) */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
-                
-                {/* Section 1: Basic Info */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-3 border-b border-slate-800 pb-2">
                         <CalendarIcon size={18} className="text-red-500" />
@@ -673,7 +785,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                     </div>
                 </div>
 
-                {/* Section 2: Team Selection */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-3 border-b border-slate-800 pb-2">
                         <Users size={18} className="text-blue-500" />
@@ -717,7 +828,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                     </div>
                 </div>
 
-                {/* Section 3: Fleet Selection */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-3 border-b border-slate-800 pb-2">
                         <Truck size={18} className="text-purple-500" />
@@ -761,7 +871,6 @@ const EventsView: React.FC<EventsViewProps> = ({
                     </div>
                 </div>
 
-                {/* Section 4: Model Forecast */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-3 border-b border-slate-800 pb-2">
                         <Package size={18} className="text-amber-500" />
@@ -800,14 +909,15 @@ const EventsView: React.FC<EventsViewProps> = ({
                 </div>
 
                 <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 flex items-start gap-4 mt-8">
-                    <Info size={24} className="text-blue-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-slate-500 font-bold uppercase leading-relaxed tracking-wider">
-                        O sistema detecta automaticamente se um integrante ou veículo já está escalado em outro evento na mesma data. Itens ocupados são bloqueados para garantir a consistência operacional.
-                    </p>
+                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 flex items-start gap-4 mt-8">
+                        <Info size={24} className="text-blue-500 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-slate-500 font-bold uppercase leading-relaxed tracking-wider">
+                            O sistema detecta automaticamente se um integrante ou veículo já está escalado em outro evento na mesma data. Itens ocupados são bloqueados para garantir a consistência operacional.
+                        </p>
+                    </div>
                 </div>
             </form>
 
-            {/* Modal Footer */}
             <div className="p-6 border-t border-slate-800 bg-slate-950/80 flex justify-end gap-3">
               <button 
                 type="button"
