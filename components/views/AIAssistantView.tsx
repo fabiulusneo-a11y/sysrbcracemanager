@@ -99,7 +99,6 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
             stage: item.stageName,
             memberIds: eventMemberIds,
             vehicleIds: [],
-            // Corrected to modelForecast to match the Event interface
             modelForecast: [],
             confirmed: true
         });
@@ -127,7 +126,7 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ data, onImportEvents 
         <textarea
             className="w-full h-48 p-4 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 focus:ring-2 focus:ring-purple-500 outline-none resize-none font-mono text-sm"
             placeholder={`Exemplo:
-Copa Truck - Etapa 2 em Cascavel dia 15/06/2026. 
+Copa Truck - 02 em Cascavel dia 15/06/2026. 
 Mecânicos: João e Marcos.`}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}

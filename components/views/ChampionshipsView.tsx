@@ -44,7 +44,7 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
     championshipId: '',
     cityId: '',
     date: new Date().toISOString().split('T')[0],
-    stage: '',
+    stage: '01',
     memberIds: [],
     vehicleIds: [],
     modelForecast: [],
@@ -73,7 +73,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
       return;
     }
 
-    // Gerar timestamp formatado: YYMMDD-HHmm (ex: 251222-1320)
     const now = new Date();
     const yy = now.getFullYear().toString().slice(-2);
     const mm = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -82,7 +81,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
     const min = now.getMinutes().toString().padStart(2, '0');
     const timestamp = `${yy}${mm}${dd}-${hh}${min}`;
     
-    // Nomenclatura solicitada
     const reportBaseName = "Cronograma de Etapas - ";
     const champName = selectedChamp?.name || "Campeonato";
     const fullFileName = `${reportBaseName}${champName} ${timestamp}`;
@@ -116,31 +114,24 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
         <style>
           @page { size: A4; margin: 0; }
           body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #f8fafc; color: #1e293b; font-size: 11px; line-height: 1.3; }
-          
-          /* Container fixado para captura perfeita */
           .pdf-wrapper { 
             background: #fff; 
-            width: 794px; /* Largura A4 em pixels (96dpi) */
+            width: 794px; 
             margin: 0 auto; 
             padding: 40px; 
             box-sizing: border-box;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
             min-height: 1123px;
           }
-          
           table { width: 100%; border-collapse: collapse; }
-          
           .header-table { width: 100%; margin-bottom: 20px; border-bottom: 3px solid #000; }
           .header-left h1 { margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; color: #000; }
           .header-right { text-align: right; font-size: 9px; color: #64748b; font-weight: 700; }
-
           th { text-align: left; padding: 10px 8px; background: #f1f5f9; border-bottom: 2px solid #000; font-size: 9px; font-weight: 900; text-transform: uppercase; color: #000; }
-          
           .summary-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
           .summary-card label { font-size: 8px; font-weight: 900; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; display: block; margin-bottom: 4px; }
           .summary-card h2 { margin: 0; font-size: 18px; font-weight: 900; color: #000; text-transform: uppercase; }
           .summary-card p { margin: 5px 0 0 0; font-weight: 700; color: #475569; font-size: 10px; }
-          
           .print-toolbar {
             position: fixed; top: 0; left: 0; right: 0; background: #0f172a; color: #fff; padding: 12px 24px;
             display: flex; justify-content: space-between; align-items: center; z-index: 1000;
@@ -148,21 +139,14 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
           }
           .toolbar-brand { display: flex; align-items: center; gap: 10px; }
           .toolbar-actions { display: flex; gap: 10px; }
-          
           .btn {
             border: none; padding: 8px 18px; border-radius: 6px;
             font-weight: 800; font-size: 10px; cursor: pointer; text-transform: uppercase;
             transition: all 0.2s ease; display: flex; align-items: center; gap: 8px;
           }
           .btn-print { background: #dc2626; color: #fff; }
-          .btn-print:hover { background: #b91c1c; transform: translateY(-1px); }
-          
           .btn-pdf { background: #2563eb; color: #fff; }
-          .btn-pdf:hover { background: #1d4ed8; transform: translateY(-1px); }
-          
           .btn-close { background: #475569; color: #fff; }
-          .btn-close:hover { background: #334155; }
-
           @media print {
             .print-toolbar, .print-toolbar-spacer { display: none !important; }
             body { background: #fff; padding: 0; }
@@ -173,34 +157,17 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
           function downloadPDF() {
             const element = document.getElementById('capture-area');
             const fileName = "${fullFileName}.pdf";
-            
-            // Forçar scroll para o topo antes da captura
             window.scrollTo(0,0);
-            
             const opt = {
               margin: 0,
               filename: fileName,
               image: { type: 'jpeg', quality: 1.0 },
-              html2canvas: { 
-                scale: 2, 
-                useCORS: true, 
-                letterRendering: true,
-                backgroundColor: '#ffffff'
-              },
+              html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
               jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
-            
-            document.body.style.cursor = 'wait';
             const btn = document.querySelector('.btn-pdf');
-            const originalText = btn.innerHTML;
             btn.innerHTML = 'Processando...';
-            btn.style.opacity = '0.5';
-
-            html2pdf().from(element).set(opt).save().then(() => {
-                document.body.style.cursor = 'default';
-                btn.innerHTML = originalText;
-                btn.style.opacity = '1';
-            });
+            html2pdf().from(element).set(opt).save().then(() => { btn.innerHTML = 'Baixar PDF (.pdf)'; });
           }
         </script>
       </head>
@@ -220,7 +187,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
           </div>
         </div>
         <div style="height: 70px;" class="print-toolbar-spacer"></div>
-
         <div id="capture-area" class="pdf-wrapper">
           <table class="header-table">
             <tr>
@@ -234,13 +200,11 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
               </td>
             </tr>
           </table>
-
           <div class="summary-card">
             <label>Campeonato Selecionado</label>
             <h2>${selectedChamp?.name}</h2>
             <p>Este documento contém a escala de <b>${champEvents.length} etapas</b> registradas.</p>
           </div>
-
           <table>
             <thead>
               <tr>
@@ -255,12 +219,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
               ${champEvents.length > 0 ? tableRows : '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8; font-weight: 700;">Nenhuma etapa agendada para este campeonato.</td></tr>'}
             </tbody>
           </table>
-
-          <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px; text-align: center;">
-            <div style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px;">
-              Documento Processado via RBC Motorsport Management System
-            </div>
-          </div>
         </div>
       </body>
       </html>
@@ -296,11 +254,33 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
 
   const openAddEventModal = () => {
     if (!selectedChampId) return;
+    
+    // Buscar etapas atuais do campeonato e ordenar por data
+    const champEvents = events
+        .filter(e => e.championshipId === selectedChampId)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    const nextCount = champEvents.length + 1;
+    
+    // Lógica de Data: 28 dias após a última etapa ou hoje se for a primeira
+    let nextDate = new Date().toISOString().split('T')[0];
+    if (champEvents.length > 0) {
+        const lastEvent = champEvents[champEvents.length - 1];
+        const [year, month, day] = lastEvent.date.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        dateObj.setDate(dateObj.getDate() + 28);
+        
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        nextDate = `${y}-${m}-${d}`;
+    }
+
     setNewEventData({
         championshipId: selectedChampId,
-        cityId: cities[0]?.id || '',
-        date: new Date().toISOString().split('T')[0],
-        stage: `Etapa ${(events.filter(e => e.championshipId === selectedChampId).length + 1)}`,
+        cityId: '',
+        date: nextDate,
+        stage: String(nextCount).padStart(2, '0'),
         memberIds: [],
         vehicleIds: [],
         modelForecast: [],
@@ -311,6 +291,7 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
 
   const handleAddEventSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      if (!newEventData.cityId) return;
       onAddEvent({ id: crypto.randomUUID(), ...newEventData });
       setIsAddEventModalOpen(false);
   };
@@ -399,7 +380,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
             )}
         </div>
 
-        {/* Modal: Adicionar Evento */}
         {isAddEventModalOpen && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
                 <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -413,26 +393,43 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
                         </button>
                     </div>
                     <form onSubmit={handleAddEventSubmit} className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nome da Etapa</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Identificação da Etapa</label>
                                 <input type="text" required className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none" value={newEventData.stage} onChange={e => setNewEventData({ ...newEventData, stage: e.target.value })} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Data</label>
-                                <input type="date" required className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]" value={newEventData.date} onChange={e => setNewEventData({ ...newEventData, date: e.target.value, memberIds: [] })} />
+                                <input type="date" required className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]" value={newEventData.date} onChange={e => setNewEventData({ ...newEventData, date: e.target.value })} />
+                            </div>
+                            <div className="md:col-span-2 lg:col-span-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Cidade / Local</label>
+                                <select 
+                                    required 
+                                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                                    value={newEventData.cityId}
+                                    onChange={e => setNewEventData({ ...newEventData, cityId: e.target.value })}
+                                >
+                                    <option value="" disabled>Selecione a cidade...</option>
+                                    {cities.map(c => <option key={c.id} value={c.id}>{c.name} - {c.state}</option>)}
+                                </select>
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
                             <button type="button" onClick={() => setIsAddEventModalOpen(false)} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors">Cancelar</button>
-                            <button type="submit" className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors">Salvar Etapa</button>
+                            <button 
+                              type="submit" 
+                              disabled={!newEventData.cityId}
+                              className={`px-6 py-2 rounded-lg font-bold transition-colors ${!newEventData.cityId ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}`}
+                            >
+                              Salvar Etapa
+                            </button>
                         </div>
                     </form>
                 </div>
             </div>
         )}
 
-        {/* Modal: Editar Evento */}
         {editingEvent && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
                 <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -446,19 +443,37 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
                         </button>
                     </div>
                     <form onSubmit={handleEventUpdateSubmit} className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nome da Etapa</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Identificação da Etapa</label>
                                 <input type="text" required className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none" value={editingEvent.stage} onChange={e => setEditingEvent({ ...editingEvent, stage: e.target.value })} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Data</label>
-                                <input type="date" required className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]" value={editingEvent.date} onChange={e => setEditingEvent({ ...editingEvent, date: e.target.value, memberIds: [] })} />
+                                <input type="date" required className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none [color-scheme:dark]" value={editingEvent.date} onChange={e => setEditingEvent({ ...editingEvent, date: e.target.value })} />
+                            </div>
+                            <div className="md:col-span-2 lg:col-span-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Cidade / Local</label>
+                                <select 
+                                    required 
+                                    className="w-full rounded-lg bg-slate-950 border-slate-700 border p-2.5 text-white focus:ring-2 focus:ring-red-500 outline-none"
+                                    value={editingEvent.cityId}
+                                    onChange={e => setEditingEvent({ ...editingEvent, cityId: e.target.value })}
+                                >
+                                    <option value="" disabled>Selecione a cidade...</option>
+                                    {cities.map(c => <option key={c.id} value={c.id}>{c.name} - {c.state}</option>)}
+                                </select>
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
                             <button type="button" onClick={() => setEditingEvent(null)} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors">Descartar</button>
-                            <button type="submit" className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors">Salvar Alterações</button>
+                            <button 
+                              type="submit" 
+                              disabled={!editingEvent.cityId}
+                              className={`px-6 py-2 rounded-lg font-bold transition-colors ${!editingEvent.cityId ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}`}
+                            >
+                              Salvar Alterações
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -480,7 +495,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
           <span>Novo Campeonato</span>
         </button>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {sortedChampionships.map((champ) => (
           <div key={champ.id} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-5 hover:border-red-500/50 transition-colors group relative">
@@ -505,7 +519,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
           </div>
         ))}
       </div>
-
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 w-full max-md p-6">
@@ -523,7 +536,6 @@ const ChampionshipsView: React.FC<ChampionshipsViewProps> = ({
           </div>
         </div>
       )}
-
       <DeleteConfirmModal isOpen={deleteModal.isOpen} itemName={deleteModal.champ?.name || ''} title="Excluir Campeonato" description="A exclusão do campeonato removerá todas as referências nos calendários." onClose={() => setDeleteModal({ isOpen: false, champ: null })} onConfirm={() => deleteModal.champ && onDelete(deleteModal.champ.id)} />
     </div>
   );

@@ -11,7 +11,7 @@ const eventParsingSchema = {
     type: Type.OBJECT,
     properties: {
       championshipName: { type: Type.STRING, description: "Name of the championship" },
-      stageName: { type: Type.STRING, description: "The stage number or name (e.g., Etapa 1)" },
+      stageName: { type: Type.STRING, description: "The stage number or name (e.g., 01, 02, FINAL)" },
       date: { type: Type.STRING, description: "Date in YYYY-MM-DD format" },
       cityName: { type: Type.STRING, description: "City name" },
       stateCode: { type: Type.STRING, description: "Two letter state code (e.g., SP, SC)" },
@@ -31,6 +31,7 @@ export const parseScheduleFromText = async (text: string): Promise<ParsedEventRa
       model: "gemini-3-flash-preview",
       contents: `Extract racing event information from the following text into a structured JSON format. 
       Identify championships, stages, dates, cities and specifically extract mentioned team members.
+      For the stage name, prefer the numeric format (e.g., '01', '02') unless a specific name like 'FINAL' is mentioned.
       
       Text to process:
       ${text}`,
