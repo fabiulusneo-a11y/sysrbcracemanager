@@ -338,7 +338,7 @@ const EventsView: React.FC<EventsViewProps> = ({
             </tbody>
             <tfoot>
               <tr class="total-row">
-                <td colspan="4" style="text-align: right; padding-right: 15px; font-weight: 900; text-transform: uppercase;">TOTAIS DE UTILIZAÇÃO:</td>
+                <td colspan="4" style="text-align: right; padding-right: 15px; font-weight: 900; text-transform: uppercase;">TOTAIS:</td>
                 ${activeMembers.map(m => `<td style="font-weight: 900;">${totals.members[m.id]}</td>`).join('')}
                 ${activeVehicles.map(v => `<td style="font-weight: 900;">${totals.vehicles[v.id]}</td>`).join('')}
                 ${alphabetizedModels.map(mod => `<td style="font-weight: 900;">${totals.models[mod.id]}</td>`).join('')}
